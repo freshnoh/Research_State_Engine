@@ -44,7 +44,7 @@ Research State Engine 은 논문 자체가 아니라 **연구 시도의 상태�
 
 ## 시연 흐름 (G1~G6)
 
-실제 구현·검증 상태는 [docs/STATUS.md](docs/STATUS.md) 가 기준입니다 (2026-09-30 실측: `npm test` 78/78 · `verify-gates` API/DB 검증 74/74 · `verify-ui` 실제 브라우저 화면 검증 29/29 · LLM 경로 리허설 3/3, G1~G6 PASS).
+검증 결과 (2026-09-30 실측): `npm test` 78/78 · `verify-gates` API/DB 검증 74/74 · `verify-ui` 실제 브라우저 화면 검증 29/29 · LLM 경로 시연 흐름 반복 검증 3/3, G1~G6 PASS.
 
 1. **G1 대화 기반 축적** — baseline 같은 접근 2건 → "오늘 후보 단백질 RSE-01을 세포 모델에서 Western blot으로 측정했고, 재현성 검증 단계에서 중단했습니다." → 저장 확인 없이 3건, 화면 C 새 행. 계획·질문은 0건 증가
 2. **G2 재사용** — 다시 질문 → "이 접근은 3번 시도됐고 모두 재현성 검증 단계에서 멈췄습니다" (DB 실제값 계산)
@@ -67,7 +67,7 @@ Research State Engine 은 논문 자체가 아니라 **연구 시도의 상태�
 |---|---|---|---|
 | A | 문서에 남아 있는 과거 경험 | 기존 기록에서 과거 **시도 후보** 회수 (Research Memory Bootstrap) | **향후 확장** — 이번 프로토타입에 없음 |
 | B | 문서에 남지 않은 경험 | 인수인계 시점의 짧은 AI 인터뷰로 **시도 후보** 회수 | **향후 확장** — 이번 프로토타입에 없음 |
-| C | 도입 이후의 새 시도 | 연구자가 에이전트와의 대화에서 말한 실제 실행·중단을 별도 저장 단계 없이 구조화·축적, 다음 판단에 재사용 | **현재 구현** (G1~G6, [docs/STATUS.md](docs/STATUS.md)) |
+| C | 도입 이후의 새 시도 | 연구자가 에이전트와의 대화에서 말한 실제 실행·중단을 별도 저장 단계 없이 구조화·축적, 다음 판단에 재사용 | **현재 구현** (G1~G6) |
 | D | 첫날 (내부 시도 이력이 비어 있을 때) | 사용자가 제공한 DOI·서지의 현재 서지·철회 상태 검증 | **현재 구현** (보조 효용) |
 | E | 장기 | 과거 후보 회수 + 이후 대화 기반 축적 → 사람이 바뀌어도 이어지는 조직의 연구 기억 | **확장 방향** |
 
@@ -141,11 +141,11 @@ node scripts/verify-gates.js   # G1~G6 실서버·실DB·실Crossref 통합 검�
 
 화면 흐름 검증 (Windows 에서, Chrome 필요): `node \\wsl.localhost\Ubuntu\home\user\projects\Research_State_Engine\scripts\verify-ui.js`
 
-시연 전 baseline 복원 (제품 기능이 아닌 운영 절차):
+시연 초기 상태(baseline) 복원 (제품 기능이 아닌 운영 절차):
 
 ```bash
-npm run baseline:create  # 기능 동결 후 1회: var/baseline/rse.baseline.db 생성
-npm run baseline:restore # 서버 정지 상태에서 복원 → 4값 검사 (4/4 아니면 시연 시작 금지)
+npm run baseline:create  # var/baseline/rse.baseline.db 생성 (seed 기준 초기 상태)
+npm run baseline:restore # 서버 정지 상태에서 복원 → 4값 검사 (4/4 가 아니면 초기 상태 불일치)
 ```
 
 ## 기술 구성
@@ -158,7 +158,7 @@ npm run baseline:restore # 서버 정지 상태에서 복원 → 4값 검사 (4/
 | 테스트 | `node:test` |
 | 외부 연구 데이터 | **Crossref REST API** (`api.crossref.org/works/{doi}`) 하나뿐 |
 | 무결성 | SHA-256 (`node:crypto`) |
-| AI 모델 | 자연어 → 구조화 후보 추출: 로컬 Claude Code CLI (`claude -p`, 계정 기본 모델). CLI 실패 시 규칙 기반(rules) 추출로 전환하고 응답에 `extractor_fallback` 을 표기해 숨기지 않음. 2026-09-30 API Key 인증 복구 후 제품 추출 함수 실측 `modelUsage` = `claude-sonnet-5-5` (관측값이며 코드에 고정하지 않음). 그 환경에서 제품 실제 extractor = `llm:claude-cli`, 정상 경로 unexpected fallback 0, LLM 경로 리허설 3/3. LLM 이 넘긴 값은 원문에 글자 그대로 있는 것만 쓰고, 대상에 붙은 환경 표현·누락된 환경은 원문 규칙으로 보정 · 개발 도구: Claude Code (Claude Opus 5.5) |
+| AI 모델 | 자연어 → 구조화 후보 추출: 로컬 Claude Code CLI (`claude -p`, 계정 기본 모델). CLI 실패 시 규칙 기반(rules) 추출로 전환하고 응답에 `extractor_fallback` 을 표기해 숨기지 않음. 2026-09-30 API Key 인증 환경에서 제품 추출 함수 실측 `modelUsage` = `claude-sonnet-5-5` (관측값이며 코드에 고정하지 않음). 그 환경에서 제품 실제 extractor = `llm:claude-cli`, 정상 경로 unexpected fallback 0, LLM 경로 시연 흐름 반복 검증 3/3. LLM 이 넘긴 값은 원문에 글자 그대로 있는 것만 쓰고, 대상에 붙은 환경 표현·누락된 환경은 원문 규칙으로 보정 · 개발 도구: Claude Code (Claude Opus 5.5) |
 
 LLM 은 값 추출·설명에만 쓰이며, 다음은 결정적 규칙(코드)이 판정합니다:
 실행 흔적 여부 · 같은 접근 여부 · 서지 비교 · 철회 판정 · 조회 실패 시 기존 상태 유지 · 승인 필요 여부.
@@ -189,4 +189,3 @@ seed 는 시연 시작 상태를 미리 준비한 것이고, 그 위에서 일�
 
 - 제품 사양: [docs/SPEC.md](docs/SPEC.md)
 - 트랙 간 계약 (schema·API·fixture): [docs/CONTRACT.md](docs/CONTRACT.md)
-- 게이트 상태: [docs/STATUS.md](docs/STATUS.md)
