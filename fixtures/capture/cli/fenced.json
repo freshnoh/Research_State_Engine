@@ -1,0 +1,1 @@
+{"type":"result","is_error":false,"result":"```json\n{\"target\":\"RSE-01\",\"method\":\"Western blot\",\"environment\":\"세포 모델\",\"condition\":null,\"result\":\"stopped\",\"stop_stage\":\"재현성 검증\"}\n```"}
