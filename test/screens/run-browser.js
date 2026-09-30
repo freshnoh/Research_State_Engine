@@ -132,7 +132,7 @@ async function runFixture() {
 
     const rec0 = await h.text('auto-record-line');
     check('A', '초기: 자동 기록 줄은 안내 문구 (자동 기록됨 아님)', [true, false], [rec0.length > 0, rec0.includes('자동 기록됨')]);
-    check('A', '초기: 저장/확인 버튼 없음 (버튼 라벨에 저장·초기화·reset 없음)', [], await b.evaluate(`[...document.querySelectorAll('button')].map(x => x.innerText).filter(t => /저장|초기화|reset|확인 버튼/i.test(t))`));
+    check('A', '초기: 저장/확인 버튼 없음 (버튼 라벨에 저장·초기화·reset 없음)', [], await b.evaluate(`[...document.querySelectorAll('button')].filter(x => x.getClientRects().length > 0).map(x => x.innerText).filter(t => /저장|초기화|reset|확인 버튼/i.test(t))`));
     check('A', '초기: 세 덩어리 모두 안내 문구로 존재', [true, true, true], [(await h.text('answer-tried')).length > 0, (await h.text('answer-evidence')).length > 0, (await h.text('answer-next')).length > 0]);
     await h.shot('A0-initial');
 
@@ -145,7 +145,7 @@ async function runFixture() {
     const n0 = mock.state.attempts.length;
     await h.send(PLAN); await h.idleA(); await sleep(150);
     check('A', '계획 발화: 응답 saved=false → 화면 기록 줄 불변 · 서버 시도 증가 0', [n0, false, 'success'], [mock.state.attempts.length, (await h.text('auto-record-line')).includes('자동 기록됨'), await h.state('a')]);
-    check('A', '계획 발화: 기록 안 됨 표시', true, (await h.text('record-status')).includes('계획') && (await h.text('record-status')).includes('기록하지 않았습니다'));
+    check('A', '계획 발화: 기록 안 됨 표시', true, (await h.text('record-status')).includes('계획') && (await h.text('record-status')).includes('추가하지 않았습니다'));
 
     // 질문: loading 상태 관찰
     mock.delay['POST /api/chat'] = 900;
@@ -156,7 +156,7 @@ async function runFixture() {
     const tried1 = await h.text('answer-tried');
     check('A', '질문 답: ① 이미 해본 것 — fixture 응답값(2번, 재현성 검증) 렌더', [true, true, '2건'], [tried1.includes('2번'), tried1.includes('재현성 검증'), await h.text('tried-count').then((t) => t.replace(/\s+/g, '').replace('같은접근', ''))]);
     const ev1 = await h.text('answer-evidence'); const nx1 = await h.text('answer-next');
-    check('A', '질문 답: ② 근거 부족 표시 + ③ NO_PATH 의미', [true, true], [ev1.includes('근거 부족'), nx1.includes('다음 경로를 제시할 수 없습니다') && nx1.includes('근거 부족')]);
+    check('A', '질문 답: ② 연결된 논문 근거 없음 + ③ 다음 경로 제안 안 함 ("근거 부족" 표현 0)', [true, true, false], [ev1.includes('연결된 논문 근거 없음'), nx1.includes('검증된 논문 근거가 없어 다음 경로는 제안하지 않습니다'), (ev1 + nx1).includes('근거 부족')]);
     check('A', '질문 발화: 시도 증가 0 (서버) · 자동 기록 줄 불변', [n0, false], [mock.state.attempts.length, (await h.text('auto-record-line')).includes('자동 기록됨')]);
 
     // 실행 발화 2→3
@@ -290,7 +290,7 @@ async function runFixture() {
     check('C', 'baseline: 과거 근거 행 verified · "확인" · 합성 기준선 고지', [true, true, true], [
       (await h.attr('[data-testid="evidence-row"][data-evidence-id="1"]', 'data-status')) === 'verified',
       (await h.sel('[data-testid="evidence-row"][data-evidence-id="1"]')).includes('확인'),
-      (await h.text('evidence-list')).includes('철회 이전 시점의 시연용 과거 상태') && (await b.evaluate('document.body.innerText')).includes('철회 이전 시점을 재현한 시연용 합성 기준선')]);
+      (await h.text('evidence-list')).includes('철회 이전 시점의 시연용 과거 상태') && (await b.evaluate('document.body.innerText')).includes('철회 이전 시점을 재현한 시연용 기준 상태')]);
     check('C', 'baseline: 판단 행 needs-review=0 · 판단일 2022-03-15 · 재검토 표시 없음', ['0', true, true], [await h.attr('[data-testid="judgment-row"]', 'data-needs-review'), (await h.sel('[data-testid="judgment-row"]')).includes('2022-03-15'), (await h.sel('[data-testid="judgment-row"]')).includes('재검토 표시 없음')]);
     check('C', '서지 불일치·확인 불가 행: API 상태 + 표준 문구(부재 단정 없음)', [true, true], [(await h.sel('[data-testid="evidence-row"][data-evidence-id="3"]')).includes('서지 불일치'), (await h.sel('[data-testid="evidence-row"][data-evidence-id="4"]')).includes('DOI 등록을 확인하지 못했습니다')]);
     await h.shot('C0-baseline');
@@ -301,7 +301,7 @@ async function runFixture() {
     const rowsDuring = [await b.count('evidence-row')];
     await b.click('recheck-btn'); await sleep(150);
     rowsDuring.push(await b.count('evidence-row'), await b.count('judgment-row'));
-    check('C', 'loading: 상태 loading · 버튼 비활성·"재검사 중" · 기존 행 유지 (지워지지 않음)', ['loading', true, true, [api.e, api.e, api.j]], [await h.state('c'), await b.evaluate(`${h.q('recheck-btn')}.disabled`), (await h.text('recheck-btn')).includes('재검사 중'), rowsDuring]);
+    check('C', 'loading: 상태 loading · 버튼 비활성·"확인 중" · 기존 행 유지 (지워지지 않음)', ['loading', true, true, [api.e, api.e, api.j]], [await h.state('c'), await b.evaluate(`${h.q('recheck-btn')}.disabled`), (await h.text('recheck-btn')).includes('확인 중'), rowsDuring]);
     check('C', 'loading 중 근거 행은 아직 verified', 'verified', await h.attr('[data-testid="evidence-row"][data-evidence-id="1"]', 'data-status'));
     await h.idleC(); delete mock.delay['POST /api/recheck']; await sleep(200);
     const evRow = '[data-testid="evidence-row"][data-evidence-id="1"]'; const jRow = '[data-testid="judgment-row"][data-judgment-id="1"]';
@@ -311,7 +311,7 @@ async function runFixture() {
     check('C', '재검사 후: 상태 변경 이력(확인 → 철회됨) 표시 · 다른 근거 행 불변', [true, ['verified', 'mismatch', 'unverifiable']], [evT.includes('확인 → 철회됨'), await b.evaluate(`[2,3,4].map(i => document.querySelector('[data-testid="evidence-row"][data-evidence-id="'+i+'"]').dataset.status)`)]);
     const sumT = await h.text('recheck-summary');
     check('C', '재검사 요약: 결과(확인→철회됨) · Crossref 현재 조회 · 재검토 표시 판단 #1', [true, true, true], [sumT.includes('확인') && sumT.includes('철회됨'), sumT.includes('현재 조회') && sumT.includes('HTTP 200'), sumT.includes('#1')]);
-    check('C', '의미 구분 문구: 철회됨 ≠ 판단이 틀렸다는 뜻 (재검토 필요 = 사람이 다시 봐야 함)', [true, true], [(await h.pageText()).includes('판단이 틀렸다는 뜻이 아닙니다'), (await h.pageText()).includes('과거 판단을 사람이 다시 봐야 함')]);
+    check('C', '의미 구분 문구: 철회됨 ≠ 판단이 틀렸다는 뜻 (재검토 필요 = 사람이 다시 봐야 함)', [true, true], [(await h.pageText()).includes('판단이 틀렸다는 뜻은 아닙니다'), (await h.pageText()).includes('사람이 그 판단을 다시 보도록')]);
     check('C', '재검사 후에도 합성/실제 고지 유지', [true, true], [(await h.text('data-notice')).includes('시연용 합성 데이터'), (await h.text('data-notice')).includes('공개 실제 데이터')]);
     check('C', '재검사 후 페이지 전체에 부재·가짜 단정 표현 없음', [], await (async () => { const t = await h.pageText(); return FORBIDDEN.filter((w) => t.includes(w)); })());
     await h.shot('C1-after-recheck');

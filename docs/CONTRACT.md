@@ -187,7 +187,7 @@ LLM 이 추출한 값은 작은 별칭 사전(§7.2, `src/capture/dict.js`)으�
                  "flagged_judgment_ids": [1]}],
     "flagged_judgment_ids": [1] }
   ```
-  - [지금 재검사] = cache 우회 fresh 조회 (`crossref_lookup_log.mode='fresh'` 로 증명).
+  - [등록된 논문 현재 상태 확인] = cache 우회 fresh 조회 (`crossref_lookup_log.mode='fresh'` 로 증명).
   - 새로 `retracted` 가 되면 `evidence_judgment_link` 역조회 → 연결 judgment `needs_review=1`,
     `review_reason='근거 상태 변경: 확인 → 철회됨'`, `review_flagged_at`.
   - 조회 실패 시 §4 조회 실패 규칙.
@@ -277,8 +277,10 @@ baseline 복원 시 `$APPROVAL_DIR/original_measurements.csv` 로 복사. 기준
 - 사용자 메뉴 표시 순서: 1 연구 대화(화면 A, `nav-a`) → 2 연구 상태(화면 C, `nav-c`) → 3 원본 변경 확인(화면 B, `nav-b`). 내부 식별자 A/B/C 는 그대로다.
 - 화면 B 원본 변경 확인(승인 대기): `GET /api/approvals`, `GET /api/approval/target`, `POST /api/actions`, approve/reject, `GET /api/runs`.
   카드 = 작업 / 승인 필요 이유 / 영향 대상 / hash 앞 8자리. 승인 전·후 hash 나란히.
-- 화면 C 연구 상태: `GET /api/attempts`(원문+구조화), `GET /api/judgments`, `GET /api/evidence`, 상단 [지금 재검사] = `POST /api/recheck`.
+- 화면 C 연구 상태: `GET /api/attempts`(원문+구조화), `GET /api/judgments`, `GET /api/evidence`, 상단 [등록된 논문 현재 상태 확인] = `POST /api/recheck`.
   재검토 필요 판단·영향 근거에 눈에 띄는 표시(색 + 텍스트).
+  상단 타임라인 "과거 판단의 근거가 지금도 같은가?": 가로 → = 시간(판단 `asked_at` → 철회 `retraction.date` → 현재 조회 `last_attempt_at`), 세로 ↓ = 실제 judgment↔evidence 링크.
+  근거의 `last_attempt_at` 이 판단 시점 이후가 아니면 "아직 현재 상태를 다시 확인하지 않았습니다" 로 두고 철회 사건을 미리 드러내지 않는다. 화면 전용 표시이며 API·판정은 그대로.
 - 모든 화면에 `DATA_NOTICE` 표시. 데모 과거 상태에는 `demo_label` 표시. 제품 reset 버튼 없음 — 예외는 `DEMO_MODE=1` 일 때만 보이는 왼쪽 메뉴 아래 작은 [발표 초기화 · 시연용] 1개 (§5.4, 확인창 [초기화]/[취소]).
 
 ### 7.1 검증용 `data-testid` (`scripts/verify-ui.js` 가 실제 브라우저로 사용자 흐름을 검증할 때 사용)
@@ -296,7 +298,12 @@ baseline 복원 시 `$APPROVAL_DIR/original_measurements.csv` 로 복사. 기준
 | B | `approval-hash-before`, `approval-hash-after` | 카드 안 hash 앞 8자리 (승인 전/후 나란히) |
 | B | `approve-btn`, `reject-btn` | 카드 안 버튼 |
 | B | `run-result` | 분석 결과 행. 속성 `data-run-id` |
-| C | `recheck-btn` | 상단 [지금 재검사] |
+| C | `recheck-btn` | 타임라인 "현재" 칸의 [등록된 논문 N건 현재 상태 확인] (N = `GET /api/evidence` 길이) = `POST /api/recheck` |
+| C | `timeline`, `tl-grid`, `tl-past`, `tl-mid`, `tl-now-date`, `tl-now-body`, `tl-found` | 과거 판단의 근거 타임라인 영역 |
+| C | `tl-pair` | 판단↔근거 실제 링크 1쌍. 속성 `data-judgment-id`, `data-evidence-id` |
+| C | `tl-now-status` | 현재 확인 상태. 속성 `data-status` = `pending`(판단 시점 이후 조회 없음) 또는 근거 status |
+| C | `tl-retraction`, `tl-found-card` | 철회 사건(날짜 = `retraction.date`) / 철회 근거의 과거 사용 판단(속성 `data-judgment-id`, 재검토 필요일 때만) |
+| C | `recheck-headline` | 확인 결과 한 줄 요약 (논문 N건 확인 · 바뀐 논문 N건 · 다시 확인할 과거 판단 N건) |
 | C | `attempt-row` | 시도 행. 속성 `data-attempt-id`. 안에 `attempt-raw`(원문) |
 | C | `evidence-row` | 근거 행. 속성 `data-evidence-id`, `data-status`(enum 코드) |
 | C | `judgment-row` | 판단 행. 속성 `data-judgment-id`, `data-needs-review`("1"/"0") |

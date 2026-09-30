@@ -11,12 +11,14 @@
 |---|---|---|
 | 단위·통합 테스트 `npm test` | **85/85** | 네트워크 없이 결정적 (녹화 Crossref 응답·주입 fetch) |
 | API/DB 검증 `scripts/verify-gates.js` | **74/74** | 실제 서버 프로세스 + 실제 SQLite + 실제 Crossref, baseline 복제본 DB |
-| 브라우저 검증 `scripts/verify-ui.js` | **37/37** | Chrome 1920×1080 실제 렌더링으로 화면 조작, 화면 값 = API 값 대조, 합성 과거 판단 라벨(날짜 = API 값), 메뉴 순서(1 연구 대화 → 2 연구 상태 → 3 원본 변경 확인)·가로 넘침 검사, [발표 초기화] 취소/초기화 5개 포함 |
+| 브라우저 검증 `scripts/verify-ui.js` | **40/40** | Chrome 1920×1080 실제 렌더링으로 화면 조작, 화면 값 = API 값 대조, 합성 과거 판단 라벨(날짜 = API 값), 메뉴 순서(1 연구 대화 → 2 연구 상태 → 3 원본 변경 확인)·가로 넘침 검사, [발표 초기화] 취소/초기화 5개, 근거 타임라인 확인 전/후·"근거 부족" 표현 0 포함 |
+| 화면 계약 검사 `test/screens/run-browser.js` (fixture 서버 + Chrome) | **128/128** | 이전 문구 교정 때 갱신되지 않았던 기대 문구 4건을 현행 문구로 맞춤 (검사 삭제·완화 없음) |
 | 발표 흐름 리허설 `scripts/rehearse.js` | **3/3** | 매 회차 baseline 복원(4/4) → 실제 발표 서버 · 1920×1080 · 회차당 13개 확인 |
 | 시연 baseline `npm run baseline:check` | **4/4** | 같은 접근 2 · 과거 판단 근거 확인 · 재검토 0 · 원본 hash 기준값 |
 | [발표 초기화] 보호 검사 | **4/4** | DEMO_MODE 꺼짐 404·변화 0 · 루프백 아닌 peer 403·변화 0 (X-Forwarded-For 무시) · POST 외 method 404·변화 0 · 확인창 [취소] 요청 0·변화 0 |
-| [발표 초기화] 브라우저 E2E | **3/3** | 매 회차 baseline 4/4 → LLM 실행 기록 +1 · [지금 재검사] 철회됨·재검토 1 (1회는 승인으로 원본 hash 19b0f12a→1d733821 변경까지) → Chrome [발표 초기화] → DB 직접·API·파일·화면 7/7 |
-| 최종 발표 흐름 E2E (발표 서버, Chrome) | **29/29 × 2** | [발표 초기화] → 계획 → 질문 → 실행 → 재질문 → 연구 상태 → [지금 재검사] 1회 → 이어보기 화면. 첫 회차는 계획 분류값을 plan 으로 기대해 27/29 (실제 other, 저장 0 은 통과) — 이후 분류값은 판정하지 않고 기록 |
+| [발표 초기화] 브라우저 E2E | **3/3** | 매 회차 baseline 4/4 → LLM 실행 기록 +1 · [등록된 논문 현재 상태 확인] 철회됨·재검토 1 (1회는 승인으로 원본 hash 19b0f12a→1d733821 변경까지) → Chrome [발표 초기화] → DB 직접·API·파일·화면 7/7 |
+| 최종 발표 흐름 E2E v6 (발표 서버, Chrome) | **35/35** | 아래 채택 문장 · 근거 타임라인 확인 전/후 포함 |
+| 이전 발표 흐름 E2E | **29/29 × 2** | [발표 초기화] → 계획 → 질문 → 실행 → 재질문 → 연구 상태 → [등록된 논문 현재 상태 확인] 1회 → 이어보기 화면. 첫 회차는 계획 분류값을 plan 으로 기대해 27/29 (실제 other, 저장 0 은 통과) — 이후 분류값은 판정하지 않고 기록 |
 | G1~G6 | **PASS** | 아래 표 |
 
 ## LLM 추출 경로
@@ -45,7 +47,7 @@
 | G1 자동 축적 | **PASS** | baseline 같은 접근 2/2 → 실행 발화 후 3/3 (+1/+1) · 계획·질문·가설 증가 0/0 · 원문 + 구조화 RSE-01/western_blot/cell/stopped/reproducibility_validation · 환경 미상 → environment NULL·`undetermined` · 화면 A "자동 기록됨 — …" 한 줄 · 화면 C 새 행에 원문·구조화 값 표시 · 계획/질문 후 화면 C 행 불변 |
 | G2 재사용 | **PASS** | DB 같은 접근 3/3, ids [1,2,8] · common_stop_stage reproducibility_validation all_same · 화면 A 입력 전 "2번…" / 입력 후 "3번…재현성 검증" · 다른 접근은 다른 DB 값 → 하드코딩 아님 · 판단 저장 + 사용 시도 link · 다음 후보 = "저장된 이력과 검증된 근거만으로는 다음 경로를 제시할 수 없습니다" |
 | G3 근거 검증 | **PASS** | 정상 verified · 손상 mismatch(title) · 확인 불가 unverifiable/not_found · 현장 입력 DOI verified(fresh) · Crossref 도달 불가 시 기존 verified 유지 + latest_check_failed · 최초 조회 실패 unverifiable/lookup_failed · raw cache 보존 · 화면 C 근거 상태 = API 전수 · 화면에 부재·가짜 단정 표현 0 |
-| G4 철회와 소급 | **PASS** | baseline 근거 verified · 합성 과거 판단 link 1 · 재검토 0 · 철회 논문 cache 0 → [지금 재검사] fresh HTTP 200 → retraction / updated-by / publisher, retraction-watch / notice 10.1038/s41586-024-07691-8 / 2024-06-24 → verified→retracted · 역조회 판단 needs_review 1 · 화면 C 재검사 전 "확인"·과거 상태 고지 → 후 "철회됨"·"재검토 필요" (판단이 틀렸다는 뜻 아님 문구) |
+| G4 철회와 소급 | **PASS** | baseline 근거 verified · 합성 과거 판단 link 1 · 재검토 0 · 철회 논문 cache 0 → [등록된 논문 현재 상태 확인] fresh HTTP 200 → retraction / updated-by / publisher, retraction-watch / notice 10.1038/s41586-024-07691-8 / 2024-06-24 → verified→retracted · 역조회 판단 needs_review 1 · 화면 C 재검사 전 "확인"·과거 상태 고지 → 후 "철회됨"·"재검토 필요" (판단이 틀렸다는 뜻 아님 문구) |
 | G5 승인 게이트 | **PASS** | 화면 B: 대기 카드 승인 전 hash 19b0f12a = 원본 · 작업/이유/영향 대상 표시 · 대기 중 분석 완료(카드 여전히 대기) · 승인 전 원본 불변 · 승인 후 전 19b0f12a / 후 1d733821 나란히 = 파일 실측 · 거절 → rejected + hash 불변 |
 | G6 영속성 | **PASS** | 서버 프로세스 종료 → 새 프로세스: DB 5/5 (시도·근거·연결·철회·재검토) + API 5/5 + 화면 시도 행 수·철회됨·재검토 필요 유지 |
 
@@ -65,15 +67,21 @@
 - Windows Chrome → WSL 발표 서버 접속의 서버측 peer 주소 실측 = `127.0.0.1` (루프백 판정 통과, 허용 범위 확장 없음)
 - 초기화를 부르지 않은 정상 재시작은 데이터를 유지 (테스트 + verify-gates G6 10/10 + verify-ui G6 3/3, verify-ui 서버는 DEMO_MODE=1)
 
-## 발표 채택 문장 (발표 서버 · 실제 LLM, 최종 흐름 E2E 3회)
+## 발표 채택 문장 (발표 서버 · 실제 LLM)
 
-| 문장 | 결과 (3회 동일) |
+| 문장 | 결과 |
 |---|---|
-| 계획 "내일 RSE-01을 세포에서 Western blot으로 실험할까 해." | 연구 시도 증가 0, 화면 "시도 추가 안 됨". 분류값은 `other` (현재 분류 규칙의 계획 어미 목록에 "할까 해" 없음 — 규칙은 변경하지 않음) |
-| 질문 "RSE-01 단백질을 세포에서 Western blot으로 확인하려는데, 전에 같은 실험을 한 적 있어?" | question · 증가 0 · RSE-01/western_blot/cell · 같은 접근 2 · 화면 "2번…재현성 검증" |
-| 실행 "오늘 RSE-01 단백질을 세포에서 Western blot으로 확인했는데, 재현성 확인 단계에서 중단했어." | execution · +1 · RSE-01/western_blot/cell/stopped/reproducibility_validation · 조건 미상(null) · extractor llm:claude-cli · fallback 0 |
+| 계획 "내일 RSE-01을 세포에서 Western blot으로 실험할 계획이야." | plan · 연구 시도 증가 0 · 화면 "계획이라 연구 시도 건수에 추가하지 않았습니다" |
+| 질문 "RSE-01을 세포에서 Western blot으로 해본 적 있어?" | question · 증가 0 · RSE-01/western_blot/cell · 같은 접근 2 · 화면 "2번…재현성 검증" · 근거 "연결된 논문 근거 없음" · 다음 후보 "검증된 논문 근거가 없어 다음 경로는 제안하지 않습니다" |
+| 실행 "오늘 RSE-01을 세포에서 Western blot으로 했는데 재현성 검증 단계에서 멈췄어." | execution · +1 · RSE-01/western_blot/cell/stopped/reproducibility_validation · 조건 미상(null) · extractor llm:claude-cli · fallback 0 |
 | 재질문 (질문과 동일) | 증가 0 · 같은 접근 3 · 화면 "3번" |
-| [지금 재검사] 1회 | 조회 4건 중 상태 변경 1건: Aβ*56 근거 verified→retracted (fresh HTTP 200) · 연결된 합성 과거 판단 재검토 0→1 · RSE-01 시도·질문 판단과 Aβ 근거 사이 연결 0 |
+| [등록된 논문 현재 상태 확인] 1회 | 조회 4건 중 상태 변경 1건: Aβ*56 근거 verified→retracted (fresh HTTP 200) · 연결된 합성 과거 판단 재검토 0→1 · RSE-01 시도·질문 판단과 Aβ 근거 사이 연결 0 |
+
+## 연구 상태 화면 — 과거 판단의 근거 타임라인
+
+- 확인 전: 2022.03.15 시연용 과거 판단 → ↓ 근거로 사용 → 공개 실제 논문(당시 저장 상태 확인) → 시간 → 현재: "아직 현재 상태를 다시 확인하지 않았습니다" (철회 사건 미표시)
+- 확인 후: 2022.03.15 → 2024.06.24 논문 철회(공개 실제 철회 정보, `retraction.date`) → 현재 확인(Crossref 현재 상태 철회됨) → ↓ 과거 사용처 → "2022년 과거 판단 1건 발견 · 다시 확인 필요"
+- 모두 기존 judgment↔evidence 링크와 저장값으로 그린다. API·DB·판정 로직 변경 0. RSE-01 시도와의 연결선 0
 
 ## 시연 baseline
 

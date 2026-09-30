@@ -194,11 +194,15 @@ function renderEvidenceAnswer(ans) {
   const ev = ans.evidence;
   const items = Array.isArray(ev.items) ? ev.items : [];
   const excluded = Array.isArray(ev.excluded) ? ev.excluded : [];
-  fill(box, 
+  // 논문 근거가 없다는 것이지 실험 이력이 불확실하다는 뜻이 아니다
+  const hasHistory = isObj(ans.tried) && ans.tried.count > 0;
+  fill(box,
     items.length
       ? badge('ok', `✓ 검증된 근거 ${items.length}건`)
-      : badge('warn', '△ 근거 부족 — 검증된 근거 0건'),
-    ev.text ? h('p', { style: 'margin-top:10px' }, ev.text) : null,
+      : badge('idle', '연결된 논문 근거 없음'),
+    !items.length && hasHistory
+      ? h('p', { style: 'margin-top:10px' }, '실험 이력은 있습니다. 다만 이 접근과 연결해 둔 논문 근거는 없습니다.')
+      : (ev.text ? h('p', { style: 'margin-top:10px' }, ev.text) : null),
     ...items.map((e) => h('div', { class: 'ev-item' },
       h('div', { class: 't' }, orUnknown(e.input && e.input.title)),
       h('div', { class: 'd' }, `${orUnknown(e.input && e.input.doi)} · ${e.status_label || STATUS_LABEL[e.status] || e.status}`))),
@@ -212,10 +216,11 @@ function renderNext(ans) {
     fill(box, h('p', { class: 'muted' }, ans ? '이 응답에는 “다음 후보”가 포함되지 않았습니다.' : '저장된 이력과 검증된 근거가 충분할 때만 후보를 제시합니다.'));
     return;
   }
-  fill(box, 
-    ans.next.grounded === true ? badge('ok', '✓ 저장 근거 기반') : badge('warn', '△ 근거 부족 — 후보 제시 안 함'),
-    h('p', { class: 'big', style: 'margin-top:10px' }, orUnknown(ans.next.text)),
-  );
+  if (ans.next.grounded !== true) {
+    fill(box, h('p', { class: 'big' }, '검증된 논문 근거가 없어 다음 경로는 제안하지 않습니다'));
+    return;
+  }
+  fill(box, badge('ok', '✓ 저장 근거 기반'), h('p', { class: 'big', style: 'margin-top:10px' }, orUnknown(ans.next.text)));
 }
 function renderAnswer() {
   const { answer, answerFrom } = S.a;
@@ -502,14 +507,83 @@ function renderC() {
   fill(tid('evidence-list'), ...(evidence.length ? evidence.map((e) => evidenceRow(e, judgments)) : [empty('저장된 근거가 없습니다.')]));
   fill(tid('judgment-list'), ...(judgments.length ? judgments.map(judgmentRow) : [empty('저장된 판단이 없습니다.')]));
   fill(tid('attempt-list'), ...(attempts.length ? attempts.map(attemptRow) : [empty('저장된 시도가 없습니다.')]));
+  if (!S.c.busy) tid('recheck-btn').textContent = recheckLabel();
+  renderTimeline();
+}
+// 버튼 = 등록된 근거 전체를 현재 Crossref 로 다시 조회 (대상 수는 실제 근거 목록 길이)
+const recheckLabel = () => (S.c.loaded && S.c.evidence.length ? `등록된 논문 ${S.c.evidence.length}건 현재 상태 확인` : '등록된 논문 현재 상태 확인');
+
+/* ---------- 과거 판단의 근거 타임라인 ----------
+ * 가로 → = 시간 흐름 (판단 시점 → 철회 시점 → 현재 확인 시점)
+ * 세로 ↓ = 실제 데이터 관계 (판단 ─근거로 사용→ 논문, 철회 논문 ─과거 사용처→ 판단)
+ * 모두 실제 judgment↔evidence 링크와 저장값(asked_at · retraction.date · last_attempt_at)에서 그린다. */
+const dotDate = (iso) => (iso ? String(iso).slice(0, 10).replace(/-/g, '.') : '미상');
+const yearOf = (iso) => (iso ? new Date(iso).getFullYear() : null);
+// 판단 시점 이후에 이 근거를 다시 조회했는가 (조회 전이면 당시 상태만 보여 주고 결과를 미리 드러내지 않는다)
+const checkedAfter = (e, j) => !!e.last_attempt_at && Date.parse(e.last_attempt_at) > Date.parse(j.asked_at);
+function timelinePairs() {
+  const byId = new Map(S.c.evidence.map((e) => [e.id, e]));
+  return S.c.judgments.flatMap((j) => j.evidence.map((x) => ({ j, e: byId.get(x.id) || x })));
+}
+function renderTimeline() {
+  const pairs = timelinePairs();
+  const grid = tid('tl-grid');
+  const past = tid('tl-past'); const mid = tid('tl-mid'); const now = tid('tl-now-body'); const found = tid('tl-found');
+  if (!pairs.length) {
+    fill(past, h('div', { class: 'empty' }, S.c.loaded ? '논문을 근거로 저장한 과거 판단이 없습니다.' : '불러오는 중…'));
+    fill(mid); fill(now); fill(found); grid.classList.remove('has-mid');
+    tid('tl-now-date').textContent = `${new Date().getFullYear()} · 현재`;
+    return;
+  }
+  fill(past, ...pairs.map(({ j, e }) => {
+    const changed = e.previous_status && e.previous_status !== e.status;
+    const thenStatus = changed ? e.previous_status : e.status;
+    const inp = e.input || {};
+    return h('div', { class: 'tl-stack', 'data-testid': 'tl-pair', 'data-judgment-id': j.id, 'data-evidence-id': e.id },
+      h('div', { class: 'tl-date' }, dotDate(j.asked_at)),
+      h('div', { class: 'tl-card' },
+        h('div', { class: 'tl-kind' }, '과거 판단', j.is_synthetic ? h('span', { class: 'tag tag-syn' }, '시연용 과거 판단') : null),
+        h('div', { class: 'tl-main' }, orUnknown(j.proposal))),
+      h('div', { class: 'tl-down' }, '↓ 이 판단의 근거로 사용'),
+      h('div', { class: 'tl-card' },
+        h('div', { class: 'tl-kind' }, '논문', h('span', { class: 'tag tag-real' }, '공개 실제 논문')),
+        h('div', { class: 'tl-main' }, orUnknown(inp.title)),
+        h('div', { class: 'tl-sub' }, [inp.journal, inp.year != null ? String(inp.year) : null].filter(Boolean).join(' · '), ' ', h('span', { class: 'mono' }, `DOI ${orUnknown(inp.doi)}`)),
+        h('div', { class: 'tl-then' }, '당시 저장 상태: ', badge(STATUS_TONE[thenStatus] || 'idle', `${STATUS_ICON[thenStatus] || ''} ${STATUS_LABEL[thenStatus] || thenStatus}`))));
+  }));
+  const retracted = pairs.filter(({ j, e }) => checkedAfter(e, j) && e.status === 'retracted' && e.retraction);
+  grid.classList.toggle('has-mid', retracted.length > 0);
+  fill(mid, ...retracted.map(({ e }) => h('div', { class: 'tl-stack', 'data-testid': 'tl-retraction' },
+    h('div', { class: 'tl-date' }, dotDate(e.retraction.date)),
+    h('div', { class: 'tl-card tl-bad' },
+      h('div', { class: 'tl-kind' }, '논문 철회', h('span', { class: 'tag tag-real' }, '공개 실제 철회 정보')),
+      h('div', { class: 'tl-sub' }, e.retraction.notice_doi ? `철회 공지 DOI ${e.retraction.notice_doi}` : '철회 공지 확인')))));
+  const checked = pairs.filter(({ j, e }) => checkedAfter(e, j));
+  const lastCheck = checked.map(({ e }) => e.last_attempt_at).sort().pop();
+  tid('tl-now-date').textContent = lastCheck ? `${yearOf(lastCheck)} · 현재 확인` : `${new Date().getFullYear()} · 현재`;
+  fill(now, ...pairs.map(({ j, e }) => (checkedAfter(e, j)
+    ? h('div', { class: 'tl-status', 'data-testid': 'tl-now-status', 'data-status': e.status }, 'Crossref 현재 상태: ', statusBadge(e),
+      h('span', { class: 'muted small' }, ` (${fmtTime(e.last_attempt_at)} 조회)`))
+    : h('div', { class: 'tl-status muted', 'data-testid': 'tl-now-status', 'data-status': 'pending' }, '아직 현재 상태를 다시 확인하지 않았습니다'))));
+  const flaggedPairs = retracted.filter(({ j }) => j.needs_review);
+  fill(found, ...flaggedPairs.map(({ j }) => [
+    h('div', { class: 'tl-down' }, '↓ 이 철회된 논문을 예전에 어디에 근거로 썼는지 찾음'),
+    h('div', { class: 'tl-card tl-found', 'data-testid': 'tl-found-card', 'data-judgment-id': j.id },
+      h('div', { class: 'tl-main' }, `${yearOf(j.asked_at)}년 과거 판단 1건 발견`),
+      h('div', { class: 'tl-review' }, '▲ 다시 확인 필요'),
+      h('div', { class: 'tl-sub' }, '논문이 철회됐다고 과거 판단이 틀렸다는 뜻은 아닙니다. 시스템이 자동으로 결론 내리지 않고, 사람이 다시 보도록 표시합니다.')),
+  ]).flat());
 }
 function renderRecheck() {
   const box = tid('recheck-summary');
   const r = S.c.recheck;
   if (!r) { box.hidden = true; return; }
   box.hidden = false;
-  fill(box, 
-    h('div', { class: 'panel-title' }, h('span', null, '방금 재검사 결과'),
+  const nChanged = r.results.filter((x) => x.before !== x.after).length;
+  const nFlagged = Array.isArray(r.flagged_judgment_ids) ? r.flagged_judgment_ids.length : 0;
+  fill(box,
+    h('div', { class: 'rs-head', 'data-testid': 'recheck-headline' }, `논문 ${r.checked}건 확인 · 상태가 바뀐 논문 ${nChanged}건 · 다시 확인할 과거 판단 ${nFlagged}건`),
+    h('div', { class: 'panel-title rs-detail-title' }, h('span', null, '상세 (논문별 조회 결과)'),
       h('span', { class: 'panel-sub' }, `${fmtTime(r.rechecked_at)} · 대상 ${r.checked}건`)),
     ...r.results.map((x) => {
       const l = x.lookup || {};
@@ -549,7 +623,7 @@ async function loadC(silent) {
 async function recheck() {
   if (S.c.busy) return;
   S.c.busy = true;
-  const btn = tid('recheck-btn'); btn.disabled = true; btn.textContent = '재검사 중…';
+  const btn = tid('recheck-btn'); btn.disabled = true; btn.textContent = '현재 상태 확인 중…';
   document.querySelector('[data-testid="evidence-list"]').classList.add('is-loading');
   setStatus('c', 'loading', '현재 Crossref 를 다시 조회하는 중… (기존 상태는 그대로 둡니다)');
   try {
@@ -561,12 +635,12 @@ async function recheck() {
     renderRecheck();
     const changed = r.results.filter((x) => x.before !== x.after).length;
     const flagged = Array.isArray(r.flagged_judgment_ids) ? r.flagged_judgment_ids.length : 0;
-    if (ok) setStatus('c', 'success', `재검사 완료 — ${r.checked}건 조회 · 상태 변경 ${changed}건 · 재검토 필요 표시 ${flagged}건`);
+    if (ok) setStatus('c', 'success', `확인 완료 — 논문 ${r.checked}건 · 상태 변경 ${changed}건 · 다시 확인할 과거 판단 ${flagged}건`);
     else setStatus('c', 'error', '재검사는 처리됐으나 목록을 다시 불러오지 못했습니다 (표시가 최신이 아닐 수 있음)');
   } catch (e) {
     setStatus('c', 'error', `재검사 실패 — 기존 근거·판단 표시는 그대로입니다. 조회 실패는 논문 부재를 뜻하지 않습니다: ${errText(e)}`);
   } finally {
-    S.c.busy = false; btn.disabled = false; btn.textContent = '지금 재검사';
+    S.c.busy = false; btn.disabled = false; btn.textContent = recheckLabel();
     document.querySelector('[data-testid="evidence-list"]').classList.remove('is-loading');
   }
 }

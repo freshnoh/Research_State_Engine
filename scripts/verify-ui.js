@@ -133,8 +133,11 @@ async function main() {
     const nextText = (await b.text('answer-next')) ?? '';
     check('G2', '화면 A 근거 상태·다음 후보 내용 표시', [true, true], [evText.trim().length > 0, nextText.trim().length > 0]);
     const qApi = (await api('/api/judgments')).judgments[0];
-    check('G2', '다음 후보: 근거 부족 문구 또는 저장 근거 기반', true,
-      nextText.includes('저장된 이력과 검증된 근거만으로는 다음 경로를 제시할 수 없습니다') || (qApi?.attempt_ids?.length > 0 && nextText.length > 0), undefined);
+    // 다음 후보: 저장된 판단에 제안이 없으면(검증 논문 근거 0) 화면은 '제안하지 않습니다', 있으면 그 제안 문구
+    check('G2', '다음 후보 = API 판단 제안 유무와 일치', true,
+      qApi?.proposal == null ? nextText.includes('검증된 논문 근거가 없어 다음 경로는 제안하지 않습니다') : nextText.includes(qApi.proposal), undefined);
+    check('G2', '근거 영역: 연결된 논문 근거 없음 안내 · "근거 부족" 표현 0', [true, false],
+      [evText.includes('연결된 논문 근거 없음') || evText.includes('검증된 근거'), (evText + nextText).includes('근거 부족')]);
     await nav('c');
     check('G1', '재질문 후 화면 C 행 수 불변', rows0 + 1, await b.count('attempt-row'));
     await shot('03-answer');
@@ -153,6 +156,10 @@ async function main() {
       [(await jText()).includes(`시연용 과거 판단 · ${synDate}`), (await jText()).includes('현재 대화와 별개')]);
     check('G4', '재검사 전 화면: 과거 상태 고지 + "확인" 라벨', [true, true],
       [(await jText()).includes('철회 이전 시점의 시연용 과거 상태') || (await eText()).includes('철회 이전 시점의 시연용 과거 상태'), (await eText()).includes('확인')]);
+    const dot = (iso) => String(iso).slice(0, 10).replace(/-/g, '.');
+    const tlAttr = (id, a) => b.evaluate(`[...document.querySelectorAll('[data-testid="${id}"]')].map(e => e.getAttribute('${a}'))`);
+    check('G4', '재검사 전 타임라인: 판단(API asked_at)→논문 연결 · 현재 확인 대기 · 철회 사건 미표시', [[String(jg.id)], [String(ev.id)], true, ['pending'], 0],
+      [await tlAttr('tl-pair', 'data-judgment-id'), await tlAttr('tl-pair', 'data-evidence-id'), (await b.text('tl-past')).includes(dot(jg.asked_at)), await tlAttr('tl-now-status', 'data-status'), await b.count('tl-retraction')]);
     await shot('04-before-recheck');
     await b.click('recheck-btn');
     await b.waitFor(`document.querySelector('[data-testid="judgment-row"][data-judgment-id="${jg.id}"]')?.getAttribute('data-needs-review') === '1'`, 60000).catch(() => null);
@@ -163,6 +170,9 @@ async function main() {
     check('G3', '화면 C 근거 행 상태 = API 상태 (전수)', allEv.map((e) => e.status).sort(), [...uiStatuses].sort());
     const pageText = await b.evaluate('document.body.innerText');
     check('G3', '화면에 부재·가짜 단정 표현 없음', [], ['논문 없음', '가짜 논문', '존재하지 않음', '존재하지 않는'].filter((w) => pageText.includes(w)));
+    const evAfter = (await api('/api/evidence')).evidence.find((e) => e.id === ev.id);
+    check('G4', '재검사 후 타임라인: 철회일 = API retraction.date · 현재 상태 철회됨 · 과거 판단 발견 카드 = 재검토 판단', [dot(evAfter.retraction?.date), ['retracted'], [String(jg.id)]],
+      [(await b.text('tl-mid')).includes(dot(evAfter.retraction?.date)) ? dot(evAfter.retraction?.date) : await b.text('tl-mid'), await tlAttr('tl-now-status', 'data-status'), await tlAttr('tl-found-card', 'data-judgment-id')]);
     await shot('05-after-recheck');
 
     // G5: 덮어쓰기 요청 → 대기 카드 → 분석 완료 → 승인 → 전후 hash
@@ -270,7 +280,7 @@ async function main() {
     await stopServer();
   }
   // 화면 판정: gate 별 전부 통과 + 최소 검사 수 충족일 때만 PASS(UI). 흐름 오류가 나면 이후 검사 누락 → 최소 수 미달 → FAIL.
-  const MIN = { UI: 4, G1: 8, G2: 4, G3: 2, G4: 5, G5: 6, G6: 3, DEMO: 5 };
+  const MIN = { UI: 4, G1: 8, G2: 5, G3: 2, G4: 7, G5: 6, G6: 3, DEMO: 5 };
   const byGate = {};
   for (const r of results) { byGate[r.gate] ??= { pass: 0, total: 0 }; byGate[r.gate].total++; if (r.pass) byGate[r.gate].pass++; }
   for (const [g, min] of Object.entries(MIN)) {

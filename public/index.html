@@ -149,10 +149,26 @@
         <div class="status" data-testid="c-status" data-state="idle"><span class="dot"></span><span class="status-text">대기</span></div>
       </div>
 
-      <div class="toolbar panel">
-        <button type="button" class="btn btn-primary" data-testid="recheck-btn">지금 재검사</button>
-        <span class="hint">Crossref에서 논문의 현재 상태를 다시 확인합니다 (저장해 둔 결과가 아니라 지금 조회).</span>
-      </div>
+      <!-- 과거 판단의 근거 타임라인: 가로 → 는 시간 흐름, 세로 ↓ 는 실제 데이터 관계 -->
+      <section class="panel timeline" data-testid="timeline" aria-labelledby="tl-title">
+        <div class="tl-head">
+          <h2 id="tl-title">과거 판단의 근거가 지금도 같은가?</h2>
+          <span class="panel-sub">가로 → 시간 흐름 · 세로 ↓ 실제 연결 관계</span>
+        </div>
+        <div class="tl-grid" data-testid="tl-grid">
+          <div class="tl-col tl-past" data-testid="tl-past"></div>
+          <div class="tl-arrow" aria-hidden="true"><small>시간이 지남 →</small><span></span></div>
+          <div class="tl-col tl-mid" data-testid="tl-mid"></div>
+          <div class="tl-arrow tl-arrow-2" aria-hidden="true"><small>시간이 지남 →</small><span></span></div>
+          <div class="tl-col tl-now">
+            <div class="tl-date" data-testid="tl-now-date"></div>
+            <button type="button" class="btn btn-primary" data-testid="recheck-btn">등록된 논문 현재 상태 확인</button>
+            <p class="hint tl-hint">새 논문을 검색하는 기능이 아닙니다.<br>이미 등록된 DOI를 Crossref에서 현재 상태로 다시 확인합니다.</p>
+            <div data-testid="tl-now-body"></div>
+            <div data-testid="tl-found"></div>
+          </div>
+        </div>
+      </section>
       <div class="panel recheck-summary" data-testid="recheck-summary" hidden></div>
 
       <div class="c-grid">
