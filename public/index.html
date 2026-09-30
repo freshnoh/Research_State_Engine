@@ -4,16 +4,167 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Research State Engine</title>
+<link rel="stylesheet" href="/app.css">
 </head>
 <body>
-<!-- SCREENS 트랙 소유. INTEGRATOR 가 둔 최소 placeholder. -->
-<h1>Research State Engine</h1>
-<p id="health">health 확인 중…</p>
-<script>
-fetch('/api/health').then(r => r.json()).then(h => {
-  document.getElementById('health').textContent =
-    'ok=' + h.ok + ' · attempts=' + h.counts.research_attempt + ' · evidence=' + h.counts.evidence + ' · ' + h.data_notice;
-});
-</script>
+<div class="app">
+  <aside class="rail">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <div>
+        <div class="brand-name">Research State Engine</div>
+        <div class="brand-sub">연구 상태 엔진</div>
+      </div>
+    </div>
+    <nav class="nav" aria-label="화면 전환">
+      <button type="button" class="nav-item" data-testid="nav-a" data-screen="a">
+        <span class="nav-key">A</span>
+        <span class="nav-body"><b>연구 대화</b><small>말하면 기록되고, 다음 판단에 쓰입니다</small></span>
+      </button>
+      <button type="button" class="nav-item" data-testid="nav-b" data-screen="b">
+        <span class="nav-key">B</span>
+        <span class="nav-body"><b>승인 대기열</b><small>되돌릴 수 없는 일만 멈춥니다</small></span>
+      </button>
+      <button type="button" class="nav-item" data-testid="nav-c" data-screen="c">
+        <span class="nav-key">C</span>
+        <span class="nav-body"><b>연구 상태</b><small>시도 · 근거 · 판단 · 재검토</small></span>
+      </button>
+    </nav>
+    <div class="rail-foot">
+      <div class="rail-foot-title">읽는 법</div>
+      <p>색과 글자를 함께 씁니다. 상태는 항상 글자로도 적혀 있습니다.</p>
+      <p><b>조회 실패 ≠ 논문 부재</b><br>못 찾은 것과 없는 것을 구분해서 표시합니다.</p>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="notice" data-testid="data-notice" role="note">
+      <span class="notice-item"><span class="tag tag-syn">합성</span>기관 연구 이력·내부 판단: <b>시연용 합성 데이터</b></span>
+      <span class="notice-item"><span class="tag tag-real">실제</span>논문·DOI·현재 철회 정보: <b>공개 실제 데이터</b></span>
+      <span class="notice-item notice-warn"><span class="tag tag-warn">≠</span><b>조회 실패 ≠ 논문 부재</b></span>
+    </header>
+
+    <!-- 화면 A — 연구 대화 -->
+    <section class="screen" id="screen-a" data-screen="a" aria-labelledby="title-a">
+      <div class="screen-head">
+        <div>
+          <h1 id="title-a">연구 대화</h1>
+          <p class="lead">실행한 결과를 그대로 말하면 됩니다. 저장 버튼은 없습니다 — 실행 흔적이 있는 발화만 자동으로 기록됩니다.</p>
+        </div>
+        <div class="status" data-testid="a-status" data-state="idle"><span class="dot"></span><span class="status-text">대기</span></div>
+      </div>
+
+      <div class="composer panel">
+        <label class="sr-only" for="chat-input">연구 발화 입력</label>
+        <textarea id="chat-input" data-testid="chat-input" rows="3" placeholder="예) 오늘 후보 단백질 RSE-01을 세포 모델에서 Western blot으로 측정했고, 재현성 검증 단계에서 중단했습니다."></textarea>
+        <div class="composer-side">
+          <button type="button" class="btn btn-primary" data-testid="chat-send">보내기</button>
+          <span class="hint">Enter 전송 · Shift+Enter 줄바꿈</span>
+        </div>
+      </div>
+
+      <div class="panel record">
+        <div class="panel-title"><span>자동 기록</span><span class="panel-sub" data-testid="record-status">아직 이번 세션에서 보낸 발화가 없습니다</span></div>
+        <div class="record-line" data-testid="auto-record-line">아직 기록된 발화가 없습니다. 실행 결과를 말하면 이 줄에 나타납니다.</div>
+        <div class="record-struct" data-testid="record-struct"></div>
+      </div>
+
+      <div class="answers" data-testid="answers">
+        <article class="panel answer">
+          <div class="panel-title"><span><i class="num">①</i> 이미 해본 것</span></div>
+          <div class="answer-body" data-testid="answer-tried"><p class="muted">질문을 보내면 저장된 시도 이력에서 계산한 결과가 여기에 나옵니다.</p></div>
+        </article>
+        <article class="panel answer">
+          <div class="panel-title"><span><i class="num">②</i> 근거 상태</span></div>
+          <div class="answer-body" data-testid="answer-evidence"><p class="muted">검증된 근거만 근거로 셉니다. 확인되지 않은 근거는 이력에 남고 근거 집합에서 빠집니다.</p></div>
+        </article>
+        <article class="panel answer">
+          <div class="panel-title"><span><i class="num">③</i> 다음 후보</span></div>
+          <div class="answer-body" data-testid="answer-next"><p class="muted">저장된 이력과 검증된 근거가 충분할 때만 후보를 제시합니다.</p></div>
+        </article>
+      </div>
+      <div class="answer-source muted" data-testid="answer-source"></div>
+
+      <div class="panel log">
+        <div class="panel-title"><span>이번 세션 발화</span><span class="panel-sub">발화 분류는 서버 판정값입니다</span></div>
+        <ol class="log-list" data-testid="chat-log"></ol>
+      </div>
+    </section>
+
+    <!-- 화면 B — 승인 대기열 -->
+    <section class="screen" id="screen-b" data-screen="b" aria-labelledby="title-b" hidden>
+      <div class="screen-head">
+        <div>
+          <h1 id="title-b">승인 대기열</h1>
+          <p class="lead">원본 변경처럼 되돌리기 어려운 일만 멈춥니다. 승인을 기다리는 동안에도 독립적인 분석은 계속됩니다.</p>
+        </div>
+        <div class="status" data-testid="b-status" data-state="idle"><span class="dot"></span><span class="status-text">대기</span></div>
+      </div>
+
+      <div class="toolbar panel">
+        <button type="button" class="btn btn-danger-soft" data-testid="request-overwrite">원본 덮어쓰기 요청</button>
+        <button type="button" class="btn" data-testid="run-analysis">분석 실행</button>
+        <span class="hint">시연용 버튼 — 요청은 승인 카드를 만들 뿐 원본을 바꾸지 않습니다.</span>
+      </div>
+
+      <div class="b-top">
+        <div class="panel target">
+          <div class="panel-title"><span>원본 파일 현재 hash</span><span class="panel-sub">지금 디스크의 값</span></div>
+          <div class="hash-big" data-testid="target-hash">—</div>
+          <div class="target-path muted" data-testid="target-path"></div>
+        </div>
+        <div class="panel runs">
+          <div class="panel-title"><span>독립 분석 결과</span><span class="panel-sub">승인이 필요 없는 가역 작업</span></div>
+          <div class="run-list" data-testid="run-list"></div>
+        </div>
+      </div>
+
+      <div class="panel-title section-title"><span>승인 카드</span><span class="panel-sub" data-testid="approval-count"></span></div>
+      <div class="cards" data-testid="approval-list"></div>
+    </section>
+
+    <!-- 화면 C — 연구 상태 -->
+    <section class="screen" id="screen-c" data-screen="c" aria-labelledby="title-c" hidden>
+      <div class="screen-head">
+        <div>
+          <h1 id="title-c">연구 상태</h1>
+          <p class="lead">근거의 현재 상태를 다시 확인하면, 그 근거를 쓴 과거 판단이 재검토 대상으로 표시됩니다.</p>
+        </div>
+        <div class="status" data-testid="c-status" data-state="idle"><span class="dot"></span><span class="status-text">대기</span></div>
+      </div>
+
+      <div class="toolbar panel">
+        <button type="button" class="btn btn-primary" data-testid="recheck-btn">지금 재검사</button>
+        <span class="hint">저장된 근거 전부를 캐시 없이 현재 Crossref 에서 다시 확인합니다.</span>
+      </div>
+      <div class="panel recheck-summary" data-testid="recheck-summary" hidden></div>
+
+      <div class="c-grid">
+        <div class="c-col">
+          <div class="col-head">
+            <h2>근거와 과거 판단</h2>
+            <span class="tag tag-real">실제 문헌</span><span class="tag tag-syn">합성 과거 판단</span>
+          </div>
+          <p class="col-note">철회 이전 시점을 재현한 시연용 합성 기준선입니다. 논문·DOI·현재 철회 정보는 공개 실제 데이터이고, 과거 판단은 합성입니다.</p>
+          <div class="sub-title">근거 <span class="count" data-testid="evidence-count"></span></div>
+          <div class="rows" data-testid="evidence-list"></div>
+          <div class="sub-title">판단 <span class="count" data-testid="judgment-count"></span></div>
+          <p class="col-note meaning"><b>철회됨</b> = 논문의 현재 근거 상태 · <b>재검토 필요</b> = 과거 판단을 사람이 다시 봐야 함 (판단이 틀렸다는 뜻이 아닙니다)</p>
+          <div class="rows" data-testid="judgment-list"></div>
+        </div>
+        <div class="c-col">
+          <div class="col-head">
+            <h2>연구 시도 이력</h2>
+            <span class="tag tag-syn">합성 이력</span><span class="tag tag-live">실시간 입력</span>
+          </div>
+          <p class="col-note">원문 옆에 서버가 구조화한 값이 나란히 보입니다. 같은 접근 = 대상 + 방법 + 환경.</p>
+          <div class="sub-title">시도 <span class="count" data-testid="attempt-count"></span></div>
+          <div class="rows" data-testid="attempt-list"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+<script src="/app.js"></script>
 </body>
 </html>
