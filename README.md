@@ -1,23 +1,70 @@
 # Research State Engine (연구 상태 엔진)
 
-연구자가 따로 기록하지 않아도 대화로 말한 실제 시도·실패가 연구 상태로 쌓이고, 그것이 다음 판단에 다시 쓰이며,
-근거(논문)가 나중에 철회되면 그 근거를 썼던 과거 판단까지 재검토 대상으로 표시하는 단일 애플리케이션.
+2026 NAIS AI 해커톤 본선 · 더블에이파트너스
+
+연구자가 따로 기록하지 않아도 대화로 말한 **실제 시도·실패가 연구 상태로 쌓이고**, 그것이 **다음 판단에 다시 쓰이며**,
+근거 논문이 나중에 **철회되면 그 근거를 썼던 과거 판단까지 재검토 대상으로 표시**하는 단일 애플리케이션입니다.
+되돌릴 수 없는 작업(원본 덮어쓰기 등)만 사람 승인을 기다리고, 그동안 다른 가역 작업은 계속됩니다.
 
 > **기관 시도 이력과 과거 판단은 시연용 합성 데이터 · 문헌 근거와 철회 정보는 공개 실제 데이터**
+
+## 증명하는 네 가지
+
+| | 무엇이 실제로 작동하는가 |
+|---|---|
+| A. 자동 축적 | "오늘 ~를 측정했고 ~단계에서 중단했습니다" → 저장 폼·확인 버튼 없이 시도가 구조화되어 SQLite 에 저장. 계획·질문은 저장하지 않음 |
+| B. 재사용 | 다음 질문에서 같은 접근(대상+방법+환경)의 과거 시도 수와 중단 단계를 DB 실제값으로 계산해 답함 |
+| C. 근거 검증·소급 | Crossref 로 DOI 를 확인(확인 / 서지 불일치 / 확인 불가 / 철회됨). [지금 재검사] 로 철회가 확인되면 그 근거를 쓴 과거 판단에 "재검토 필요" 표시 |
+| D. 비가역만 승인 | 원본 덮어쓰기는 승인 대기열로. 승인 전·후 SHA-256 을 나란히 표시. 대기 중에도 분석 작업은 완료 |
 
 ## 실행
 
 ```bash
-npm run db:init   # SQLite schema 생성 (DB_PATH, 기본 var/rse.db)
-npm run seed      # 빈 DB 에 시연 seed 적재
-npm start         # http://127.0.0.1:4100
-npm test
+npm run db:init          # SQLite schema 생성 (DB_PATH, 기본 var/rse.db)
+npm run seed             # 빈 DB 에 시연 seed 적재
+npm start                # http://127.0.0.1:4100
+npm test                 # 단위·통합 테스트 (네트워크 불필요)
+node scripts/verify-gates.js   # G1~G6 실서버·실DB·실Crossref 통합 검증 (var/verify 사용)
 ```
 
-Node.js ≥ 22.13 만 필요하다 (외부 npm 의존성 없음).
+시연 전 baseline 복원 (제품 기능이 아닌 운영 절차):
 
-## 구성 (작성 중 — 통합 후 갱신)
+```bash
+npm run baseline:create  # 기능 동결 후 1회: var/baseline/rse.baseline.db 생성
+npm run baseline:restore # 서버 정지 상태에서 복원 → 4값 검사 (4/4 아니면 시연 시작 금지)
+```
 
-- 저장소: SQLite 단일 파일 (`node:sqlite`)
-- 외부 연구 데이터: Crossref REST API 하나
-- 사양: [docs/SPEC.md](docs/SPEC.md) · 트랙 계약: [docs/CONTRACT.md](docs/CONTRACT.md) · 상태: [docs/STATUS.md](docs/STATUS.md)
+## 기술 구성
+
+| 구분 | 사용 |
+|---|---|
+| 런타임 | Node.js ≥ 22.13 (외부 npm 의존성 없음) |
+| 서버 | `node:http` 단일 애플리케이션 |
+| 저장소 | **SQLite** 단일 파일 (`node:sqlite`) — 연구 시도·근거·판단·연결·승인·Crossref 조회 cache |
+| 테스트 | `node:test` |
+| 외부 연구 데이터 | **Crossref REST API** (`api.crossref.org/works/{doi}`) 하나뿐 |
+| 무결성 | SHA-256 (`node:crypto`) |
+| AI 모델 | 자연어 → 구조화 후보 추출: _통합 후 기록_ · 개발 도구: Claude Code (Claude Opus 5.5) |
+
+LLM 은 값 추출·설명에만 쓰이며, 다음은 결정적 규칙(코드)이 판정합니다:
+실행 흔적 여부 · 같은 접근 여부 · 서지 비교 · 철회 판정 · 조회 실패 시 기존 상태 유지 · 승인 필요 여부.
+
+## 데이터 출처
+
+| 데이터 | 성격 | 출처 |
+|---|---|---|
+| 기관 연구 시도 이력 (RSE-01 등 7건) | **시연용 합성 데이터** | `fixtures/seed/seed.json` |
+| 과거 판단 "Aβ*56 관련 경로를 후속 검증 후보로 유지" (2022-03-15) | **시연용 합성 데이터** (철회 이전 시점 상태) | `fixtures/seed/seed.json` |
+| 논문 서지·철회 정보 | **공개 실제 데이터** | Crossref REST API (현재 응답을 실시간 조회) |
+| 철회 논문 | Lesné et al., *Nature* 2006, DOI 10.1038/nature04533 — 2024-06-24 철회 (Crossref `updated-by` type=retraction) | Crossref |
+| 서지 손상 표본 | 실제 DOI 에 **시연용으로 일부러 손상시킨 제목** | `fixtures/evidence/samples.json` |
+| 승인 게이트 원본 파일 | 시연용 합성 측정값 CSV | `fixtures/approval/` |
+
+데모1(RSE-01 합성 이력)과 데모2(Aβ*56 철회 논문) 사이에는 어떤 인과관계도 없습니다.
+"확인 불가"는 Crossref 에서 확인하지 못했다는 뜻이며 논문이 없다는 뜻이 아닙니다. DOI 확인은 논문 주장의 과학적 참을 뜻하지 않습니다.
+
+## 문서
+
+- 제품 사양: [docs/SPEC.md](docs/SPEC.md)
+- 트랙 간 계약 (schema·API·fixture): [docs/CONTRACT.md](docs/CONTRACT.md)
+- 게이트 상태: [docs/STATUS.md](docs/STATUS.md)
