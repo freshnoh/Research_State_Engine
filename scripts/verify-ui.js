@@ -148,6 +148,9 @@ async function main() {
     const jText = () => b.evaluate(`document.querySelector('[data-testid="judgment-row"][data-judgment-id="${jg.id}"]')?.innerText ?? ''`);
     const eText = () => b.evaluate(`document.querySelector('[data-testid="evidence-row"][data-evidence-id="${ev.id}"]')?.innerText ?? ''`);
     check('G4', '재검사 전 화면: 근거 확인 / 재검토 없음', ['verified', '0'], [await evStatus(), await jReview()]);
+    const synDate = String(jg.asked_at).slice(0, 10);
+    check('G4', '합성 과거 판단 라벨 (날짜 = API asked_at) · 현재 대화와 별개 고지', [true, true],
+      [(await jText()).includes(`시연용 과거 판단 · ${synDate}`), (await jText()).includes('현재 대화와 별개')]);
     check('G4', '재검사 전 화면: 과거 상태 고지 + "확인" 라벨', [true, true],
       [(await jText()).includes('철회 이전 시점의 시연용 과거 상태') || (await eText()).includes('철회 이전 시점의 시연용 과거 상태'), (await eText()).includes('확인')]);
     await shot('04-before-recheck');
@@ -225,7 +228,7 @@ async function main() {
     await stopServer();
   }
   // 화면 판정: gate 별 전부 통과 + 최소 검사 수 충족일 때만 PASS(UI). 흐름 오류가 나면 이후 검사 누락 → 최소 수 미달 → FAIL.
-  const MIN = { UI: 4, G1: 8, G2: 4, G3: 2, G4: 4, G5: 6, G6: 3 };
+  const MIN = { UI: 4, G1: 8, G2: 4, G3: 2, G4: 5, G5: 6, G6: 3 };
   const byGate = {};
   for (const r of results) { byGate[r.gate] ??= { pass: 0, total: 0 }; byGate[r.gate].total++; if (r.pass) byGate[r.gate].pass++; }
   for (const [g, min] of Object.entries(MIN)) {

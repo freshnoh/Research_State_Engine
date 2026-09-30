@@ -136,11 +136,20 @@ function renderRecord() {
     ['결과', a.result_label],
     ['중단 단계', a.stop_stage && (a.stop_stage.raw || a.stop_stage.norm)],
   ];
+  // 세부값이 미상인 실행 기록 안내 (추측으로 채우지 않았음을 설명). 같은 접근 비교 불가는 approach_key 가 없을 때만.
+  const missing = [
+    !(a.method && a.method.norm) ? '방법' : null,
+    !(a.environment && a.environment.norm) ? '환경' : null,
+    a.result === 'unknown' ? '결과' : null,
+  ].filter(Boolean);
   head.hidden = false;
   head.classList.toggle('is-older', !rec.latest);
   fill(head,
     h('div', { class: 'rh-title' }, rec.latest ? '✓ 새 연구 시도 1건 기록됨' : '최근 기록된 연구 시도 (방금 발화는 연구 시도로 추가되지 않았습니다)'),
-    h('div', { class: 'rh-kv' }, kv.map(([k, v]) => h('span', null, h('small', null, k), h('b', null, orUnknown(v))))));
+    h('div', { class: 'rh-kv' }, kv.map(([k, v]) => h('span', null, h('small', null, k), h('b', null, orUnknown(v))))),
+    missing.length ? h('div', { class: 'rh-note' },
+      `실제로 수행한 연구라는 사실은 기록했습니다. 말하지 않은 ${missing.join('·')}은(는) 추측하지 않고 미상으로 남겼습니다.`) : null,
+    !a.approach_key ? h('div', { class: 'rh-note' }, '대상·방법·환경 중 미상이 있어 같은 접근 비교에는 아직 사용할 수 없습니다.') : null);
   line.textContent = rec.line;
   line.dataset.empty = '0';
   line.dataset.attemptId = a.id;
@@ -408,7 +417,7 @@ function evidenceRow(e, judgments) {
   const notes = [];
   if (e.retraction) {
     const r = e.retraction;
-    notes.push(h('div', { class: 'bad' }, `Crossref 현재 기록: 이 논문은 ${orUnknown(r.date)}에 철회되었습니다.`));
+    notes.push(h('div', { class: 'bad' }, `공개 실제 데이터(Crossref)에서 철회 확인: 이 논문은 ${orUnknown(r.date)}에 철회되었습니다.`));
     notes.push(h('div', { class: 'muted small' }, `상세: 유형 ${orUnknown(r.type)} · 방향 ${orUnknown(r.direction)} · 출처 ${orUnknown(r.source)}${r.notice_doi ? ` · 공지 DOI ${r.notice_doi}` : ''}`));
   }
   if (e.previous_status && e.previous_status !== e.status) {
@@ -437,12 +446,18 @@ function evidenceRow(e, judgments) {
       h('div', { class: 'row-badges' }, statusBadge(e), badge('info', '공개 실제 논문'))),
     h('div', { class: 'row-notes' }, notes),
     e.demo_label ? h('span', { class: 'demo-label' }, `${e.demo_label}`) : null,
+    e.is_demo_past_state && e.status === 'verified' ? h('div', { class: 'link-ev' }, '당시 사용한 논문 상태: 확인 (철회 이전 시점)') : null,
     h('div', { class: 'link-ev' }, linked.length ? `이 논문을 근거로 한 과거 판단 ${linked.length}건: ${linked.map((j) => `#${j.id}`).join(' ')}` : '이 논문을 근거로 한 저장된 판단 없음'),
+    e.status === 'retracted' && linked.some((j) => j.needs_review)
+      ? h('div', { class: 'link-ev warn-text' }, `이 논문을 사용한 과거 판단 ${linked.filter((j) => j.needs_review).length}건 → 재검토 필요`) : null,
   );
 }
 function judgmentRow(j) {
   const review = j.needs_review;
   return h('div', { class: 'row', 'data-testid': 'judgment-row', 'data-judgment-id': j.id, 'data-needs-review': review ? '1' : '0' },
+    j.is_synthetic ? h('div', { class: 'syn-head' },
+      h('b', null, `시연용 과거 판단 · ${fmtDate(j.asked_at)}`),
+      h('span', null, '현재 대화와 별개로 미리 준비된 합성 과거 기록입니다.')) : null,
     h('div', { class: 'row-head' },
       h('div', null,
         h('div', { class: 'row-title' }, orUnknown(j.proposal)),
@@ -470,10 +485,10 @@ function attemptRow(a) {
       h('div', { class: 'row-sub' }, `#${a.id} · ${fmtDate(a.occurred_at)}`),
       h('div', { class: 'row-badges' },
         badge(a.result === 'success' ? 'ok' : (a.result === 'stopped' || a.result === 'failure' ? 'warn' : 'idle'), `결과 ${orUnknown(a.result_label)}`),
-        a.is_synthetic ? badge('idle', '시연용 과거 기록') : badge('ok', '오늘 대화에서 기록'))),
+        a.is_synthetic ? badge('idle', '시연용 과거 기록') : badge('ok', '현재 대화에서 기록'))),
     h('p', { class: 'raw-text', 'data-testid': 'attempt-raw' }, a.raw_text),
     h('div', { class: 'attempt-meta' }, meta.map(([k, v]) => h('span', { class: 'chip' }, k, h('b', null, orUnknown(v)))),
-      a.approach_key ? h('span', { class: 'chip' }, '접근 키', h('b', { class: 'mono', style: 'font-size:13px' }, a.approach_key)) : h('span', { class: 'chip' }, '접근 키', h('b', null, '미확정'))),
+      a.approach_key ? h('span', { class: 'chip' }, '접근 키', h('b', { class: 'mono', style: 'font-size:13px' }, a.approach_key)) : h('span', { class: 'chip' }, '같은 접근 비교', h('b', null, '세부 정보 부족 — 아직 사용 안 함'))),
   );
 }
 function renderC() {
@@ -502,7 +517,12 @@ function renderRecheck() {
         badge(STATUS_TONE[x.before] || 'idle', STATUS_LABEL[x.before] || orUnknown(x.before)), '→',
         badge(STATUS_TONE[x.after] || 'idle', STATUS_LABEL[x.after] || orUnknown(x.after)),
         h('span', { class: 'muted' }, `Crossref ${l.mode === 'fresh' ? '현재 조회' : orUnknown(l.mode)} · ${l.ok ? `HTTP ${orUnknown(l.http_status)}` : `조회 실패 (${orUnknown(l.error)}) — 기존 확인 상태를 덮어쓰지 않음, 논문 부재를 뜻하지 않음`}`),
-        flagged.length ? badge('warn', `▲ 재검토 필요로 표시된 판단 ${flagged.map((i) => `#${i}`).join(' ')}`) : null);
+        flagged.length ? badge('warn', `▲ 재검토 필요로 표시된 판단 ${flagged.map((i) => `#${i}`).join(' ')}`) : null,
+        (() => { // 같은 상태가 반복 확인된 경우: 이전 재검사에서 이미 바뀌었는지 저장값으로 알려 준다
+          const ev = S.c.evidence.find((e) => e.id === x.evidence_id);
+          return x.before === x.after && ev && ev.previous_status && ev.previous_status !== ev.status && ev.status_changed_at && ev.status_changed_at < r.rechecked_at
+            ? h('span', { class: 'muted' }, `(이전 재검사 ${fmtTime(ev.status_changed_at)}에서 이미 ${STATUS_LABEL[ev.previous_status] || ev.previous_status} → ${STATUS_LABEL[ev.status] || ev.status} 상태로 바뀌었습니다)`) : null;
+        })());
     }),
   );
 }
