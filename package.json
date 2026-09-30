@@ -11,6 +11,9 @@
     "start": "node --disable-warning=ExperimentalWarning src/server.js",
     "db:init": "node --disable-warning=ExperimentalWarning scripts/db-init.js",
     "seed": "node --disable-warning=ExperimentalWarning scripts/seed.js",
-    "test": "node --disable-warning=ExperimentalWarning --test --test-concurrency=1 \"test/**/*.test.js\""
+    "baseline:create": "node --disable-warning=ExperimentalWarning scripts/baseline.js create",
+    "baseline:restore": "node --disable-warning=ExperimentalWarning scripts/baseline.js restore",
+    "baseline:check": "node --disable-warning=ExperimentalWarning scripts/baseline.js check",
+    "test":"node --disable-warning=ExperimentalWarning --test --test-concurrency=1 \"test/**/*.test.js\""
   }
 }

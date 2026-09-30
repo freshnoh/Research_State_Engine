@@ -199,6 +199,12 @@ LLM 이 추출한 값은 CAPTURE 의 작은 별칭 사전(§7.2)으로 정규화
   - 조회 실패 시 §4 조회 실패 규칙.
 - `GET /api/evidence/:id/judgments` → `{evidence_id, judgments: Judgment[]}` (역조회)
 
+EVIDENCE 가 `src/evidence/index.js` 에서 export 할 함수 (INTEGRATOR baseline 스크립트가 호출):
+- `async prewarmBaselineCache(db, config, {exclude: string[]})` →
+  `fixtures/evidence/samples.json` 의 `normal`, `corrupted`, `unverifiable` 표본을 **일반 조회 경로(POST /api/evidence 와 동일 로직)** 로
+  evidence 행 + crossref_cache 에 등록하고 `{registered: [{key, evidence_id, status}], skipped: [doi]}` 반환.
+  `exclude` 의 DOI(철회 논문 `10.1038/nature04533`)와 `live_unseeded` 는 절대 조회·cache 하지 않는다.
+
 ### 5.3 INTEGRATOR — 승인 게이트 (`src/approval/**`)
 규칙표 (`src/approval/policy.js`):
 
@@ -265,6 +271,12 @@ normal / corrupted(시연용 손상) / unverifiable(404, 형식 정상) / retrac
 
 ### 7.4 G5 원본 (`fixtures/approval/original_measurements.csv`, INTEGRATOR)
 baseline 복원 시 `$APPROVAL_DIR/original_measurements.csv` 로 복사. 기준 hash 는 이 fixture 의 sha256.
+
+### 7.5 baseline 운영 (INTEGRATOR, `scripts/baseline.js`) — 제품 UI 아님
+- `npm run baseline:create` → `$DATA_DIR/baseline/rse.baseline.db` (seed + EVIDENCE prewarm, 철회 논문 cache 없음)
+- `npm run baseline:restore` → 서버가 PORT 에서 실행 중이면 거부. DB_PATH·원본 파일 복원 후 4값 검사
+- `npm run baseline:check` → 같은 접근=2 / 과거 판단 근거=verified / 재검토 표시=0 / 원본 hash=fixture hash (+ 철회 논문 cache 0)
+  4/4 가 아니면 시연 시작 금지 (exit 1)
 
 ## 8. 화면 계약 (SCREENS)
 - 화면 A 연구 대화: `POST /api/chat` → 세 덩어리(이미 해본 것 / 근거 상태 / 다음 후보) + 저장 시 "자동 기록됨 — …" 한 줄. 저장 폼/확인 버튼 없음.
