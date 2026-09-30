@@ -287,6 +287,28 @@ baseline 복원 시 `$APPROVAL_DIR/original_measurements.csv` 로 복사. 기준
   재검토 필요 판단·영향 근거에 눈에 띄는 표시(색 + 텍스트).
 - 모든 화면에 `DATA_NOTICE` 표시. 데모 과거 상태에는 `demo_label` 표시. 제품 reset 버튼 금지.
 
+### 8.1 검증용 `data-testid` (필수 — INTEGRATOR 가 실제 브라우저로 사용자 흐름을 검증한다)
+단일 페이지 `public/index.html`. 화면 전환이 있으면 `nav-a` / `nav-b` / `nav-c` 클릭으로 전환.
+
+| 화면 | testid | 요소 / 속성 |
+|---|---|---|
+| 공통 | `data-notice` | 합성/실제 데이터 고지 문구 |
+| A | `chat-input`, `chat-send` | 입력창, 보내기 버튼 (Enter 도 가능하되 버튼 필수) |
+| A | `auto-record-line` | 가장 최근 "자동 기록됨 — …" 한 줄 |
+| A | `answer-tried`, `answer-evidence`, `answer-next` | 가장 최근 답의 세 덩어리 |
+| B | `request-overwrite` | 시연용 "원본 덮어쓰기 요청" 버튼 (`POST /api/actions {action_type:'overwrite_original'}`) |
+| B | `run-analysis` | 시연용 "분석 실행" 버튼 (`POST /api/actions {action_type:'run_analysis'}`) |
+| B | `approval-card` | 카드. 속성 `data-approval-id`, `data-status` |
+| B | `approval-hash-before`, `approval-hash-after` | 카드 안 hash 앞 8자리 (승인 전/후 나란히) |
+| B | `approve-btn`, `reject-btn` | 카드 안 버튼 |
+| B | `run-result` | 분석 결과 행. 속성 `data-run-id` |
+| C | `recheck-btn` | 상단 [지금 재검사] |
+| C | `attempt-row` | 시도 행. 속성 `data-attempt-id`. 안에 `attempt-raw`(원문) |
+| C | `evidence-row` | 근거 행. 속성 `data-evidence-id`, `data-status`(enum 코드) |
+| C | `judgment-row` | 판단 행. 속성 `data-judgment-id`, `data-needs-review`("1"/"0") |
+
+화면은 API 응답이 바뀐 뒤 새로고침 없이 갱신되어야 한다 (버튼 처리 후 재조회).
+
 ## 9. 공용 파일 변경 절차
 worker 는 공용 파일을 직접 수정하지 않고 자기 handoff 에 기록한다:
 ```

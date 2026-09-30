@@ -237,6 +237,7 @@ async function apiSnap() {
 
 async function main() {
   const source = prepare();
+  if (process.argv.includes('--prepare-only')) { console.log(`prepared ${DIR} from ${source}`); return; }
   console.log(`verify: DB 출처=${source} DIR=${DIR} PORT=${PORT}`);
   await startServer();
   const stages = [['G1/G2', g1g2], ['G3', async () => failurePath(await g3())], ['G4', g4], ['G5', g5], ['G6', g6]];
