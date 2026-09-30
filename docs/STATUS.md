@@ -2,7 +2,8 @@
 
 > worker 는 이 파일을 수정하지 않는다. 모든 값은 INTEGRATOR 의 실측 기준.
 
-갱신: 2026-09-30 18:40 KST (창1 INTEGRATOR)
+갱신: 2026-09-30 18:35 KST (창1 INTEGRATOR)
+통합 검증: `node scripts/verify-gates.js` 최근 실행 = 전체 24/59 (G1 4/13 · G2 1/8 · G3 1/8 · G4 4/12 · G5 8/8 · G6 6/10) — worker 트랙 미통합(501)
 
 | 항목 | 상태 | 근거 / 미검증 |
 |---|---|---|
@@ -10,7 +11,7 @@
 | G2 재사용 | NOT_STARTED | — |
 | G3 근거 검증 | NOT_STARTED | 표본 5건의 현재 Crossref 응답만 사전 실측 (fixtures/evidence/samples.json) |
 | G4 철회와 소급 | NOT_STARTED | 2026-09-30 Crossref 실측: 10.1038/nature04533 `updated-by` 에 type=retraction (publisher, retraction-watch, 2024-06-24). seed 판단·근거 link 1 존재 |
-| G5 승인 게이트 | NOT_STARTED | — |
+| G5 승인 게이트 | 진행 중 (PASS 아님) | backend: verify-gates 실서버 8/8 (승인 전 hash 19b0f12a = 기준, 대기 중 분석 completed, 승인 후 1d733821, 거절 시 불변), 단위 5/5. **미검증: 화면 B 전후 hash 표시(SCREENS)** |
 | G6 영속성 | NOT_STARTED | — |
 | R1 제출 안전 | NOT_STARTED | public repo 확인(visibility=public). README/PPT/영상 미완 |
 | PARALLEL_READY | **O** (25/25) | 2026-09-30 18:45 실측. 아래 표 |
