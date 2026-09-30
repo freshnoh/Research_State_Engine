@@ -1,14 +1,14 @@
 // 발표 리허설 (검증 도구, 제품 코드 아님). Windows 에서 실행:
-//   node \\wsl.localhost\Ubuntu\home\user\projects\Research_State_Engine\scripts\rehearse.js [회차수=3]
+//   node scripts/rehearse.js [회차수=3]   (Windows node 로 저장소 루트에서 실행)
 // 매 회차: 서버 정지 → baseline:restore(4/4 확인) → 실제 발표 서버(PORT 4100, 운영 DB) 기동 →
 //          실제 브라우저로 발표 순서 실행 → 핵심 DB/API/화면 값 확인 → 서버 정지. 마지막에 baseline 재복원.
 import { spawn, execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { launch } from './lib/cdp.js';
+import { launch, wslPath } from './lib/cdp.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const WSL_ROOT = '/home/user/projects/Research_State_Engine';
+const WSL_ROOT = wslPath(ROOT);
 const BASE = 'http://localhost:4100';
 const ROUNDS = Number(process.argv[2] || 3);
 const Q = 'RSE-01 세포에서 WB 해볼 생각인데 전에 해본 적 있어?';

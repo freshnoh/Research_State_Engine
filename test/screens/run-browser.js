@@ -3,18 +3,18 @@
 //   node test/screens/run-browser.js live      → tier=live: 이 checkout 의 실제 서버(WSL, PORT 4103)를 대상으로 한 실제 API 검증
 //   node test/screens/run-browser.js           → 둘 다
 // Windows node 로 실행 (WSL 에는 chromium 라이브러리 없음, scripts/lib/cdp.js 재사용).
-//   node \\wsl.localhost\Ubuntu\home\user\projects\Research_State_Engine\test\screens\run-browser.js
+//   node test/screens/run-browser.js   (Windows node 로 저장소 루트에서 실행)
 import { spawn, execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { launch } from '../../scripts/lib/cdp.js';
+import { launch, wslPath } from '../../scripts/lib/cdp.js';
 import { createMock } from './lib/mock-server.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..');
 const OUT = path.join(ROOT, 'var', 'screens-verify');
-const WSL_ROOT = '/home/user/projects/Research_State_Engine';
+const WSL_ROOT = wslPath(ROOT);
 const LIVE_PORT = 4103;
 const W = 1920; const H = 1080;
 

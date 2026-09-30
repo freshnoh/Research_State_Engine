@@ -6,6 +6,12 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
+// Windows 에서 본 저장소 경로(\\wsl.localhost\<배포판>\...) → WSL 내부 경로(/...). WSL 안에서 실행하면 그대로.
+export function wslPath(p) {
+  const m = String(p).match(/^\\\\wsl(?:\.localhost|\$)\\[^\\]+(\\.*)$/i);
+  return m ? m[1].replace(/\\/g, '/') : p;
+}
+
 function findChrome() {
   if (process.env.RSE_CHROME) return process.env.RSE_CHROME;
   if (process.platform === 'win32') {

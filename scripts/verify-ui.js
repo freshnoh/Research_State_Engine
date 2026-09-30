@@ -1,16 +1,16 @@
 // 화면 사용자 흐름 검증 (검증 도구). 실제 브라우저로 화면 A/B/C 를 조작하고 화면 값 + API 값을 대조한다.
-// Windows 에서 실행:  node \\wsl.localhost\Ubuntu\home\user\projects\Research_State_Engine\scripts\verify-ui.js
+// Windows node 로 저장소 루트에서 실행:  node scripts/verify-ui.js
 //  - WSL 에서 verify-ui 전용 DB 를 baseline 에서 준비하고 서버(PORT 4107)를 띄운다 (재시작 포함, G6)
 //  - 계약: docs/CONTRACT.md §7.1 data-testid
 import { spawn, execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { launch } from './lib/cdp.js';
+import { launch, wslPath } from './lib/cdp.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
-const WSL_ROOT = '/home/user/projects/Research_State_Engine';
+const WSL_ROOT = wslPath(ROOT);
 const PORT = Number(process.env.VERIFY_UI_PORT || 4107);
 const BASE = `http://localhost:${PORT}`;
 const VDIR = 'var/verify-ui';

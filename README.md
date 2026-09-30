@@ -139,7 +139,7 @@ npm test                 # 단위·통합 테스트 (네트워크 불필요)
 node scripts/verify-gates.js   # G1~G6 실서버·실DB·실Crossref 통합 검증 (var/verify 사용)
 ```
 
-화면 흐름 검증 (Windows 에서, Chrome 필요): `node \\wsl.localhost\Ubuntu\home\user\projects\Research_State_Engine\scripts\verify-ui.js`
+화면 흐름 검증 (Chrome 필요, 저장소 루트에서): `node scripts/verify-ui.js`
 
 시연 초기 상태(baseline) 복원 (제품 기능이 아닌 운영 절차):
 
@@ -188,4 +188,5 @@ seed 는 시연 시작 상태를 미리 준비한 것이고, 그 위에서 일�
 ## 문서
 
 - 제품 사양: [docs/SPEC.md](docs/SPEC.md)
-- 트랙 간 계약 (schema·API·fixture): [docs/CONTRACT.md](docs/CONTRACT.md)
+- API·데이터 계약 (schema·API·판정 규칙·fixture): [docs/CONTRACT.md](docs/CONTRACT.md)
+- 검증 결과 (G1~G6 실측값): [docs/STATUS.md](docs/STATUS.md)
