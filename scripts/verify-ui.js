@@ -64,7 +64,7 @@ async function main() {
   fs.mkdirSync(SHOTS, { recursive: true });
   console.log(wsl(`cd ${WSL_ROOT} && VERIFY_DIR=${VDIR} node --disable-warning=ExperimentalWarning scripts/verify-gates.js --prepare-only`).trim());
   await startServer();
-  const b = await launch();
+  const b = await launch({ width: 1920, height: 1080 }); // 발표 해상도
   const shot = (n) => b.screenshot(path.join(SHOTS, `${n}.png`));
   const nav = async (x) => { if (await b.exists(`nav-${x}`)) await b.click(`nav-${x}`); };
   const attrs = (id, attr) => b.evaluate(`[...document.querySelectorAll('[data-testid="${id}"]')].map(e => e.getAttribute('${attr}'))`);
@@ -82,6 +82,14 @@ async function main() {
     await b.goto(BASE + '/');
     await b.waitFor(`!!document.querySelector('[data-testid="data-notice"]')`);
     check('UI', '데이터 고지 표시', true, (await b.text('data-notice'))?.includes('시연용 합성 데이터'), undefined);
+    // 사용자 메뉴 표시 순서 1 연구 대화 → 2 연구 상태 → 3 원본 변경 확인, 클릭 결과 A / C / B (내부 식별자 유지)
+    const navOrder = await b.evaluate(`[...document.querySelectorAll('.nav-item')].map(n => [n.dataset.testid, n.querySelector('b').innerText.trim()])`);
+    const shown = [];
+    for (const [id] of navOrder) { await b.click(id); shown.push(await b.evaluate(`document.querySelector('.screen:not([hidden])').dataset.screen`)); }
+    check('UI', '메뉴 순서·클릭 결과', [[['nav-a', '연구 대화'], ['nav-c', '연구 상태'], ['nav-b', '원본 변경 확인']], ['a', 'c', 'b']], [navOrder, shown]);
+    const overflow = [];
+    for (const x of ['a', 'c', 'b']) { await b.click(`nav-${x}`); overflow.push(await b.evaluate('document.documentElement.scrollWidth <= window.innerWidth')); }
+    check('UI', '가로 넘침 없음 (A/C/B)', [true, true, true], overflow);
     await shot('00-initial');
 
     // G1: 계획/질문 → 행 증가 0, 실행 → 새 행 + 자동 기록 한 줄
@@ -217,7 +225,7 @@ async function main() {
     await stopServer();
   }
   // 화면 판정: gate 별 전부 통과 + 최소 검사 수 충족일 때만 PASS(UI). 흐름 오류가 나면 이후 검사 누락 → 최소 수 미달 → FAIL.
-  const MIN = { UI: 2, G1: 8, G2: 4, G3: 2, G4: 4, G5: 6, G6: 3 };
+  const MIN = { UI: 4, G1: 8, G2: 4, G3: 2, G4: 4, G5: 6, G6: 3 };
   const byGate = {};
   for (const r of results) { byGate[r.gate] ??= { pass: 0, total: 0 }; byGate[r.gate].total++; if (r.pass) byGate[r.gate].pass++; }
   for (const [g, min] of Object.entries(MIN)) {

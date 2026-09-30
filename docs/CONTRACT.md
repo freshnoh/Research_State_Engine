@@ -262,7 +262,8 @@ baseline 복원 시 `$APPROVAL_DIR/original_measurements.csv` 로 복사. 기준
 
 ## 7. 화면 계약 (`public/`)
 - 화면 A 연구 대화: `POST /api/chat` → 세 덩어리(이미 해본 것 / 근거 상태 / 다음 후보) + 저장 시 "자동 기록됨 — …" 한 줄. 저장 폼/확인 버튼 없음.
-- 화면 B 승인 대기열: `GET /api/approvals`, `GET /api/approval/target`, `POST /api/actions`, approve/reject, `GET /api/runs`.
+- 사용자 메뉴 표시 순서: 1 연구 대화(화면 A, `nav-a`) → 2 연구 상태(화면 C, `nav-c`) → 3 원본 변경 확인(화면 B, `nav-b`). 내부 식별자 A/B/C 는 그대로다.
+- 화면 B 원본 변경 확인(승인 대기): `GET /api/approvals`, `GET /api/approval/target`, `POST /api/actions`, approve/reject, `GET /api/runs`.
   카드 = 작업 / 승인 필요 이유 / 영향 대상 / hash 앞 8자리. 승인 전·후 hash 나란히.
 - 화면 C 연구 상태: `GET /api/attempts`(원문+구조화), `GET /api/judgments`, `GET /api/evidence`, 상단 [지금 재검사] = `POST /api/recheck`.
   재검토 필요 판단·영향 근거에 눈에 띄는 표시(색 + 텍스트).
@@ -277,8 +278,8 @@ baseline 복원 시 `$APPROVAL_DIR/original_measurements.csv` 로 복사. 기준
 | A | `chat-input`, `chat-send` | 입력창, 보내기 버튼 (Enter 도 가능하되 버튼 필수) |
 | A | `auto-record-line` | 가장 최근 "자동 기록됨 — …" 한 줄 |
 | A | `answer-tried`, `answer-evidence`, `answer-next` | 가장 최근 답의 세 덩어리 |
-| B | `request-overwrite` | 시연용 "원본 덮어쓰기 요청" 버튼 (`POST /api/actions {action_type:'overwrite_original'}`) |
-| B | `run-analysis` | 시연용 "분석 실행" 버튼 (`POST /api/actions {action_type:'run_analysis'}`) |
+| B | `request-overwrite` | "원본 측정값 파일 바꾸기" 버튼 — 변경 요청만 만든다 (`POST /api/actions {action_type:'overwrite_original'}`) |
+| B | `run-analysis` | "원본을 바꾸지 않는 분석 실행" 버튼 (`POST /api/actions {action_type:'run_analysis'}`) |
 | B | `approval-card` | 카드. 속성 `data-approval-id`, `data-status` |
 | B | `approval-hash-before`, `approval-hash-after` | 카드 안 hash 앞 8자리 (승인 전/후 나란히) |
 | B | `approve-btn`, `reject-btn` | 카드 안 버튼 |

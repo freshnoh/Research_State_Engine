@@ -12,9 +12,19 @@ const APPROVAL_TONE = { pending: 'warn', approved: 'ok', rejected: 'idle', faile
 const RUN_LABEL = { completed: '완료', failed: '실패' };
 const RUN_KEY_LABEL = {
   input: '입력', column: '열', n: 'n', mean: '평균', sd: '표준편차', cv: 'CV', min: '최소', max: '최대',
-  original_unchanged: '원본 변경 없음', original_hash_short: '원본 hash',
+  original_unchanged: '원본 변경 없음', original_hash_short: '원본 확인값',
 };
-const NOT_SAVED_NOTE = { plan: '계획 발화라 기록하지 않았습니다', question: '질문 발화라 기록하지 않았습니다', hypothesis: '가설 발화라 기록하지 않았습니다', other: '실행 결과가 아니라 기록하지 않았습니다' };
+const NOT_SAVED_NOTE = {
+  plan: '계획이라 연구 시도 건수에 추가하지 않았습니다', question: '질문이라 연구 시도 건수에 추가하지 않았습니다',
+  hypothesis: '가설이라 연구 시도 건수에 추가하지 않았습니다', other: '실제 실행 결과가 아니라 연구 시도 건수에 추가하지 않았습니다',
+};
+// 표시용 라벨 (정규화 코드 → 사람이 읽는 이름). 없으면 원문/코드를 그대로 쓴다.
+const METHOD_LABEL = { western_blot: 'Western blot', qpcr: 'qPCR', elisa: 'ELISA' };
+const APPROVAL_LABEL = { pending: '승인 대기', approved: '변경 완료', rejected: '거절됨 — 변경 없음', failed: '실행 안 됨' };
+const ACTION_LABEL = { overwrite_original: '원래 측정값 파일을 계산된 값으로 바꾸기' };
+const ACTION_EXPLAIN = { overwrite_original: '원래 측정값이 들어 있는 파일을 계산 후 변환된 값으로 교체합니다.' };
+const ACTION_WHY = { overwrite_original: '원래 측정값이 바뀌므로 먼저 사람의 확인이 필요합니다.' };
+const baseName = (p) => (p ? String(p).split(/[\\/]/).pop() : null);
 
 /* ---------- DOM helpers ---------- */
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -114,16 +124,32 @@ function fallbackRecordLine(a) {
 function renderRecord() {
   const line = tid('auto-record-line');
   const struct = tid('record-struct');
+  const head = tid('record-head');
   const rec = S.a.record;
-  if (!rec) { fill(struct, ); return; }
+  if (!rec) { fill(struct, ); head.hidden = true; return; }
+  const a = rec.attempt;
+  // 첫 시선: 새 연구 시도 1건 + 구조화 결과 (모두 저장된 attempt 값에서 렌더링)
+  const kv = [
+    ['대상', a.target && (a.target.norm || a.target.raw)],
+    ['방법', a.method && (METHOD_LABEL[a.method.norm] || a.method.raw || a.method.norm)],
+    ['환경', a.environment && (a.environment.label || a.environment.raw)],
+    ['결과', a.result_label],
+    ['중단 단계', a.stop_stage && (a.stop_stage.raw || a.stop_stage.norm)],
+  ];
+  head.hidden = false;
+  head.classList.toggle('is-older', !rec.latest);
+  fill(head,
+    h('div', { class: 'rh-title' }, rec.latest ? '✓ 새 연구 시도 1건 기록됨' : '최근 기록된 연구 시도 (방금 발화는 연구 시도로 추가되지 않았습니다)'),
+    h('div', { class: 'rh-kv' }, kv.map(([k, v]) => h('span', null, h('small', null, k), h('b', null, orUnknown(v))))));
   line.textContent = rec.line;
   line.dataset.empty = '0';
-  line.dataset.attemptId = rec.attempt.id;
-  fill(struct, 
-    h('div', { class: 'st-src' }, h('small', null, `원문 → 구조화 (기록 #${rec.attempt.id} · 서버 추출기 ${orUnknown(rec.attempt.extractor)})`), rec.attempt.raw_text),
+  line.dataset.attemptId = a.id;
+  // 보조 정보: 원문 · 원문 표기/정규화 값 · 추출기 (작게)
+  fill(struct,
+    h('div', { class: 'st-src' }, h('small', null, `원문 (기록 #${a.id} · 서버 추출기 ${orUnknown(a.extractor)})`), a.raw_text),
     h('table', { class: 'st-table', 'aria-label': '원문과 구조화 값' },
       h('thead', null, h('tr', null, h('th', null, '항목'), h('th', null, '원문 표기'), h('th', null, '정규화 값'))),
-      h('tbody', null, structRows(rec.attempt))),
+      h('tbody', null, structRows(a))),
   );
 }
 
@@ -138,7 +164,10 @@ function renderTried(ans) {
   if (t.match) chips.push(h('span', { class: 'chip' }, '판정', h('b', null, MATCH_LABEL[t.match] || t.match)));
   if (t.count != null) chips.push(h('span', { class: 'chip', 'data-testid': 'tried-count' }, '같은 접근', h('b', null, `${t.count}건`)));
   if (t.stop_stage) chips.push(h('span', { class: 'chip' }, '중단 단계', h('b', null, t.stop_stage)));
-  fill(box, 
+  fill(box,
+    h('div', { class: 'asof' }, S.a.answerStale
+      ? '방금 전 질문 기준 — 그 뒤 새 연구 시도가 기록됐습니다. 다시 물으면 최신 건수로 계산합니다.'
+      : '방금 전 질문 기준'),
     h('p', { class: 'big' }, orUnknown(t.text)),
     chips.length ? h('div', { class: 'chips' }, chips) : null,
     Array.isArray(t.attempt_ids) && t.attempt_ids.length
@@ -180,12 +209,13 @@ function renderNext(ans) {
 function renderAnswer() {
   const { answer, answerFrom } = S.a;
   renderTried(answer); renderEvidenceAnswer(answer); renderNext(answer);
-  tid('answer-source').textContent = answerFrom ? `아래 답의 기준 발화: “${answerFrom}”` : '';
+  tid('answer-source').textContent = answerFrom ? `아래 답은 방금 전 질문 기준입니다: “${answerFrom}”` : '';
+  document.querySelector('.answers').classList.toggle('is-stale', !!S.a.answerStale);
 }
 function renderLog() {
   const list = tid('chat-log');
   fill(list, ...S.a.log.slice().reverse().map((e) => h('li', null,
-    e.error ? badge('bad', '오류') : badge(e.saved ? 'ok' : 'idle', e.saved ? '✓ 기록됨' : '기록 안 됨'),
+    e.error ? badge('bad', '오류') : badge(e.saved ? 'ok' : 'idle', e.saved ? '✓ 시도 기록' : '시도 추가 안 됨'),
     h('span', { class: 'muted' }, e.error ? '전송 실패' : (KIND_LABEL[e.kind] || e.kind)),
     h('span', null, e.text))));
 }
@@ -206,15 +236,17 @@ async function sendChat() {
     if (r.saved) need(isObj(r.attempt), 'saved=true 인데 attempt 없음');
     S.a.log.push({ text, kind: r.kind, saved: r.saved });
     if (r.saved) {
-      S.a.record = { line: r.auto_record_line || fallbackRecordLine(r.attempt), attempt: r.attempt };
-      tid('record-status').textContent = `방금 발화: ${KIND_LABEL[r.kind] || r.kind} → 자동으로 기록했습니다`;
+      S.a.record = { line: r.auto_record_line || fallbackRecordLine(r.attempt), attempt: r.attempt, latest: true };
+      tid('record-status').textContent = `방금 발화: ${KIND_LABEL[r.kind] || r.kind} → 새 연구 시도로 기록했습니다`;
+      if (S.a.answer) S.a.answerStale = true; // 아래 답은 이 기록 이전의 질문 기준
     } else {
       tid('record-status').textContent = `방금 발화: ${KIND_LABEL[r.kind] || r.kind} → ${NOT_SAVED_NOTE[r.kind] || NOT_SAVED_NOTE.other}`;
+      if (S.a.record) S.a.record.latest = false;
     }
-    if (isObj(r.answer)) { S.a.answer = r.answer; S.a.answerFrom = text; }
+    if (isObj(r.answer)) { S.a.answer = r.answer; S.a.answerFrom = text; S.a.answerStale = false; }
     input.value = '';
     renderRecord(); renderAnswer(); renderLog();
-    setStatus('a', 'success', r.saved ? '완료 — 기록됨 (저장 버튼 없이 자동)' : `완료 — ${NOT_SAVED_NOTE[r.kind] || NOT_SAVED_NOTE.other}`);
+    setStatus('a', 'success', r.saved ? '완료 — 새 연구 시도 1건 기록됨 (저장 버튼 없이)' : `완료 — ${NOT_SAVED_NOTE[r.kind] || NOT_SAVED_NOTE.other}`);
     loadC(true);
   } catch (e) {
     S.a.log.push({ text, kind: 'other', saved: false, error: true });
@@ -232,7 +264,7 @@ async function sendChat() {
 function renderTarget() {
   const t = S.b.target;
   tid('target-hash').textContent = t && t.hash_short ? t.hash_short : '—';
-  tid('target-path').textContent = t ? (t.exists ? t.path : `${t.path} (파일 없음)`) : '';
+  tid('target-path').textContent = t ? (t.exists ? `원래 측정값 파일 · ${t.path}` : `${t.path} (파일 없음)`) : '';
 }
 function runKv(result) {
   if (!isObj(result)) return null;
@@ -242,14 +274,14 @@ function runKv(result) {
 function renderRuns() {
   const box = tid('run-list');
   if (!S.b.runs.length) {
-    fill(box, h('div', { class: 'empty' }, S.b.loaded ? '아직 실행된 분석이 없습니다. [분석 실행]은 승인 없이 바로 끝납니다.' : '불러오는 중…'));
+    fill(box, h('div', { class: 'empty' }, S.b.loaded ? '아직 실행된 분석이 없습니다. 원본을 바꾸지 않는 분석은 승인 없이 바로 끝납니다.' : '불러오는 중…'));
     return;
   }
   fill(box, ...S.b.runs.map((r) => h('div', { class: 'run', 'data-testid': 'run-result', 'data-run-id': r.id, 'data-status': r.status },
     h('div', { class: 'run-head' },
       h('span', { class: 't' }, `#${r.id} ${orUnknown(r.description)}`),
       badge(r.status === 'completed' ? 'ok' : 'bad', `${r.status === 'completed' ? '✓' : '✕'} ${RUN_LABEL[r.status] || r.status}`)),
-    h('div', { class: 'muted', style: 'font-size:14px' }, `승인 불필요 (${orUnknown(r.rule_id)}) · 완료 ${fmtTime(r.completed_at)}`),
+    h('div', { class: 'muted', style: 'font-size:14px' }, `원본을 바꾸지 않아 바로 실행됨 · 완료 ${fmtTime(r.completed_at)} · 규칙 ${orUnknown(r.rule_id)}`),
     runKv(r.result))));
 }
 function hashBox(testid, label, short) {
@@ -260,20 +292,28 @@ function approvalCard(a) {
   const pending = a.status === 'pending';
   const tone = APPROVAL_TONE[a.status] || 'idle';
   const icon = { pending: '⏸', approved: '✓', rejected: '—', failed: '✕' }[a.status] || '';
-  const afterLabel = a.status === 'approved' ? '승인 후 hash' : (a.status === 'rejected' ? '승인 후 hash (거절 — 변경 없음)' : '승인 후 hash (아직 없음)');
+  const afterLabel = a.status === 'approved' ? '변경 후 확인값' : (a.status === 'rejected' ? '변경 후 확인값 (거절 — 변경 없음)' : '변경 후 확인값 (승인 전이라 아직 없음)');
+  const stLabel = APPROVAL_LABEL[a.status] || a.status_label || a.status;
+  const changed = a.hash_before_short && a.hash_after_short && a.hash_before_short !== a.hash_after_short;
+  const hashNote = a.status === 'pending' ? '승인 전이라 원래 파일은 그대로입니다.'
+    : (changed ? '확인값이 달라졌습니다 → 실제 파일 내용이 바뀌었습니다.' : (a.status === 'rejected' ? '거절했으므로 원래 파일은 그대로입니다.' : null));
   return h('article', { class: 'card', 'data-testid': 'approval-card', 'data-approval-id': a.id, 'data-status': a.status },
     h('div', { class: 'card-head' },
-      h('div', { class: 'card-title' }, `#${a.id} ${orUnknown(a.description)}`),
-      badge(tone, `${icon} ${a.status_label || a.status}`)),
+      h('div', { class: 'card-title' }, `#${a.id} ${ACTION_LABEL[a.action_type] || orUnknown(a.description)}`),
+      badge(tone, `${icon} ${stLabel}`)),
     h('dl', null,
-      h('dt', null, '하려는 작업'), h('dd', null, orUnknown(a.description)),
-      h('dt', null, '승인 필요 이유'), h('dd', null, `${orUnknown(a.reason)} (${orUnknown(a.rule_id)})`),
-      h('dt', null, '영향 대상'), h('dd', null, orUnknown(a.target_path)),
-      h('dt', null, '현재 상태'), h('dd', null, `${a.status_label || a.status} · 요청 ${fmtTime(a.created_at)}${a.decided_at ? ` · 처리 ${fmtTime(a.decided_at)}` : ''}`)),
+      h('dt', null, '하려는 작업'), h('dd', null, ACTION_EXPLAIN[a.action_type] || orUnknown(a.description),
+        h('div', { class: 'dd-sub' }, orUnknown(a.description))),
+      h('dt', null, '왜 확인이 필요한가'), h('dd', null, ACTION_WHY[a.action_type] || orUnknown(a.reason),
+        h('div', { class: 'dd-sub' }, `규칙: ${orUnknown(a.reason)} (${orUnknown(a.rule_id)})`)),
+      h('dt', null, '바뀌는 파일'), h('dd', null, h('b', null, orUnknown(baseName(a.target_path))),
+        h('div', { class: 'dd-sub mono' }, orUnknown(a.target_path))),
+      h('dt', null, '현재 상태'), h('dd', null, `${stLabel} · 요청 ${fmtTime(a.created_at)}${a.decided_at ? ` · 처리 ${fmtTime(a.decided_at)}` : ''}`)),
     h('div', { class: 'hash-pair' },
-      hashBox('approval-hash-before', '승인 전 hash (앞 8자리)', a.hash_before_short),
+      hashBox('approval-hash-before', '변경 전 확인값', a.hash_before_short),
       h('div', { class: 'hash-arrow', 'aria-hidden': 'true' }, '→'),
       hashBox('approval-hash-after', afterLabel, a.hash_after_short)),
+    hashNote ? h('div', { class: changed ? 'hash-note changed' : 'hash-note' }, hashNote) : null,
     a.error ? h('div', { class: 'err' }, `실행 결과: ${a.error}`) : null,
     pending ? h('div', { class: 'card-actions' },
       h('button', { type: 'button', class: 'btn btn-ok', 'data-testid': 'approve-btn', onclick: () => decide(a.id, 'approve') }, '승인'),
@@ -284,7 +324,7 @@ function renderApprovals() {
   const box = tid('approval-list');
   tid('approval-count').textContent = S.b.loaded ? `${S.b.approvals.length}건 · 대기 ${S.b.approvals.filter((a) => a.status === 'pending').length}건` : '';
   if (!S.b.approvals.length) {
-    fill(box, h('div', { class: 'empty' }, S.b.loaded ? '승인 카드가 없습니다. [원본 덮어쓰기 요청]을 누르면 승인 대기 카드가 생깁니다.' : '불러오는 중…'));
+    fill(box, h('div', { class: 'empty' }, S.b.loaded ? '변경 요청이 없습니다. [원본 측정값 파일 바꾸기]를 누르면 승인을 기다리는 변경 요청이 생깁니다.' : '불러오는 중…'));
     return;
   }
   fill(box, ...S.b.approvals.map(approvalCard));
@@ -292,17 +332,17 @@ function renderApprovals() {
 function renderB() { renderTarget(); renderRuns(); renderApprovals(); }
 
 async function loadB(silent) {
-  if (!silent) setStatus('b', 'loading', '승인 대기열을 불러오는 중…');
+  if (!silent) setStatus('b', 'loading', '원본 변경 요청을 불러오는 중…');
   try {
     const [ap, ru, ta] = await Promise.all([api('/api/approvals'), api('/api/runs'), api('/api/approval/target')]);
     need(Array.isArray(ap.approvals), 'approvals[]');
     need(Array.isArray(ru.runs), 'runs[]');
     S.b.approvals = ap.approvals; S.b.runs = ru.runs; S.b.target = ta; S.b.loaded = true;
     renderB();
-    if (!silent) setStatus('b', 'success', `불러옴 — 승인 카드 ${ap.approvals.length}건 · 분석 ${ru.runs.length}건`);
+    if (!silent) setStatus('b', 'success', `불러옴 — 변경 요청 ${ap.approvals.length}건 · 분석 ${ru.runs.length}건`);
     return true;
   } catch (e) {
-    if (!silent) setStatus('b', 'error', `승인 대기열을 불러오지 못했습니다: ${errText(e)}`);
+    if (!silent) setStatus('b', 'error', `원본 변경 요청을 불러오지 못했습니다: ${errText(e)}`);
     return false;
   }
 }
@@ -328,31 +368,31 @@ async function bAction(label, fn) {
   }
 }
 function requestOverwrite() {
-  return bAction('원본 덮어쓰기 요청', async () => {
+  return bAction('원본 측정값 파일 바꾸기 요청', async () => {
     const r = await api('/api/actions', { method: 'POST', body: { action_type: 'overwrite_original' } });
     need(r.requires_approval === true && isObj(r.approval), 'requires_approval=true + approval');
-    return `승인 대기 카드 #${r.approval.id} 생성 — 승인 전에는 원본이 바뀌지 않습니다 (요청 시 hash ${r.approval.hash_before_short})`;
+    return `변경 요청 #${r.approval.id} 생성 — 승인 전에는 원본이 바뀌지 않습니다 (현재 확인값 ${r.approval.hash_before_short})`;
   });
 }
 function runAnalysis() {
   return bAction('분석 실행', async () => {
     const r = await api('/api/actions', { method: 'POST', body: { action_type: 'run_analysis' } });
     need(r.requires_approval === false && isObj(r.run), 'requires_approval=false + run');
-    return `독립 분석 #${r.run.id} ${RUN_LABEL[r.run.status] || r.run.status} — 승인 대기와 무관하게 진행`;
+    return `원본을 바꾸지 않는 분석 #${r.run.id} ${RUN_LABEL[r.run.status] || r.run.status} — 변경 요청이 대기 중이어도 바로 실행`;
   });
 }
 function decide(id, verb) {
   const word = verb === 'approve' ? '승인' : '거절';
-  return bAction(`카드 #${id} ${word}`, async () => {
+  return bAction(`변경 요청 #${id} ${word}`, async () => {
     const r = await api(`/api/approvals/${encodeURIComponent(id)}/${verb}`, { method: 'POST' });
     need(isObj(r.approval), 'approval');
     const a = r.approval;
     if (verb === 'approve') {
       need(a.status !== 'pending', '승인 후에도 pending');
       if (a.status === 'failed') throw new ApiError(200, 'APPROVE_FAILED', a.error || '실행 실패');
-      return `승인 완료 — hash ${a.hash_before_short} → ${orUnknown(a.hash_after_short)}`;
+      return `변경 완료 — 파일 확인값 ${a.hash_before_short} → ${orUnknown(a.hash_after_short)}`;
     }
-    return `거절 완료 — 원본은 바뀌지 않았습니다 (hash ${a.hash_before_short} 유지)`;
+    return `거절 완료 — 원본은 바뀌지 않았습니다 (확인값 ${a.hash_before_short} 유지)`;
   });
 }
 
@@ -368,7 +408,8 @@ function evidenceRow(e, judgments) {
   const notes = [];
   if (e.retraction) {
     const r = e.retraction;
-    notes.push(h('div', { class: 'bad' }, `철회 정보(현재 Crossref): 유형 ${orUnknown(r.type)} · 방향 ${orUnknown(r.direction)} · 철회일 ${orUnknown(r.date)} · 출처 ${orUnknown(r.source)}${r.notice_doi ? ` · 공지 DOI ${r.notice_doi}` : ''}`));
+    notes.push(h('div', { class: 'bad' }, `Crossref 현재 기록: 이 논문은 ${orUnknown(r.date)}에 철회되었습니다.`));
+    notes.push(h('div', { class: 'muted small' }, `상세: 유형 ${orUnknown(r.type)} · 방향 ${orUnknown(r.direction)} · 출처 ${orUnknown(r.source)}${r.notice_doi ? ` · 공지 DOI ${r.notice_doi}` : ''}`));
   }
   if (e.previous_status && e.previous_status !== e.status) {
     notes.push(h('div', { class: 'warn' }, `근거 상태 변경: ${STATUS_LABEL[e.previous_status] || e.previous_status} → ${e.status_label || STATUS_LABEL[e.status]} (${fmtTime(e.status_changed_at)})`));
@@ -383,7 +424,7 @@ function evidenceRow(e, judgments) {
     notes.push(h('div', { class: 'warn' }, `최신 확인 실패 · 마지막 확인 ${fmtTime(e.last_success_at)} (${orUnknown(e.last_error)}) — 이전 상태를 유지합니다. 조회 실패는 논문 부재를 뜻하지 않습니다.`));
   }
   if (e.excluded_reason) notes.push(h('div', null, `검증 근거 집합에서 제외: ${e.excluded_reason} (이력에는 남아 있습니다)`));
-  notes.push(h('div', { class: 'muted' }, `마지막 정상 확인 ${fmtTime(e.last_success_at)} · 최근 조회 ${fmtTime(e.last_attempt_at)}${e.last_attempt_ok === false ? ' (실패)' : ''}`));
+  notes.push(h('div', { class: 'muted small' }, `마지막 정상 확인 ${fmtTime(e.last_success_at)} · 최근 조회 ${fmtTime(e.last_attempt_at)}${e.last_attempt_ok === false ? ' (실패)' : ''}`));
   const inp = e.input || {};
   return h('div', { class: 'row', 'data-testid': 'evidence-row', 'data-evidence-id': e.id, 'data-status': e.status },
     h('div', { class: 'row-head' },
@@ -393,10 +434,10 @@ function evidenceRow(e, judgments) {
           [Array.isArray(inp.authors) && inp.authors.length ? `${inp.authors[0]}${inp.authors.length > 1 ? ' 외' : ''}` : null,
             inp.journal || null, inp.year != null ? String(inp.year) : null].filter(Boolean).join(' · '),
           ' ', h('span', { class: 'mono' }, `DOI ${orUnknown(inp.doi)}`))),
-      h('div', { class: 'row-badges' }, statusBadge(e), badge('info', '실제 문헌'))),
+      h('div', { class: 'row-badges' }, statusBadge(e), badge('info', '공개 실제 논문'))),
     h('div', { class: 'row-notes' }, notes),
     e.demo_label ? h('span', { class: 'demo-label' }, `${e.demo_label}`) : null,
-    h('div', { class: 'link-ev' }, linked.length ? `이 근거를 쓴 저장된 판단 ${linked.length}건: ${linked.map((j) => `#${j.id}`).join(' ')}` : '이 근거를 쓴 저장된 판단 없음'),
+    h('div', { class: 'link-ev' }, linked.length ? `이 논문을 근거로 한 과거 판단 ${linked.length}건: ${linked.map((j) => `#${j.id}`).join(' ')}` : '이 논문을 근거로 한 저장된 판단 없음'),
   );
 }
 function judgmentRow(j) {
@@ -408,11 +449,11 @@ function judgmentRow(j) {
         h('div', { class: 'row-sub' }, `질문: ${orUnknown(j.question)} · 판단 시점 ${fmtDate(j.asked_at)}`)),
       h('div', { class: 'row-badges' },
         review ? badge('warn', '▲ 재검토 필요') : badge('idle', '재검토 표시 없음'),
-        j.is_synthetic ? badge('idle', '합성 판단') : null)),
+        j.is_synthetic ? badge('idle', '시연용 과거 기록') : null)),
     h('div', { class: 'row-notes' },
       review ? h('div', { class: 'warn' }, `${orUnknown(j.review_reason)} · 표시 ${fmtTime(j.review_flagged_at)} — 과거 판단을 사람이 다시 볼 대상입니다. 판단이 틀렸다는 뜻은 아닙니다.`) : null,
       h('div', null, `연구자 조치: ${orUnknown(j.researcher_action)}`)),
-    h('div', { class: 'link-ev' }, '연결된 근거:',
+    h('div', { class: 'link-ev' }, '근거로 사용한 논문:',
       j.evidence.length ? j.evidence.map((e) => statusBadge(e)) : '없음',
       j.evidence.map((e) => h('span', { class: 'mono', style: 'font-size:14px' }, `#${e.id}`))),
     j.demo_label ? h('span', { class: 'demo-label' }, j.demo_label) : null,
@@ -429,7 +470,7 @@ function attemptRow(a) {
       h('div', { class: 'row-sub' }, `#${a.id} · ${fmtDate(a.occurred_at)}`),
       h('div', { class: 'row-badges' },
         badge(a.result === 'success' ? 'ok' : (a.result === 'stopped' || a.result === 'failure' ? 'warn' : 'idle'), `결과 ${orUnknown(a.result_label)}`),
-        a.is_synthetic ? badge('idle', '합성 이력') : badge('ok', '실시간 입력'))),
+        a.is_synthetic ? badge('idle', '시연용 과거 기록') : badge('ok', '오늘 대화에서 기록'))),
     h('p', { class: 'raw-text', 'data-testid': 'attempt-raw' }, a.raw_text),
     h('div', { class: 'attempt-meta' }, meta.map(([k, v]) => h('span', { class: 'chip' }, k, h('b', null, orUnknown(v)))),
       a.approach_key ? h('span', { class: 'chip' }, '접근 키', h('b', { class: 'mono', style: 'font-size:13px' }, a.approach_key)) : h('span', { class: 'chip' }, '접근 키', h('b', null, '미확정'))),
