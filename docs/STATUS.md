@@ -42,6 +42,14 @@
 root `var/rse.db` 복원 후 **4/4** — 같은 접근 2/2 · 과거 판단 근거 verified/verified · 재검토 0/0 · 원본 hash 19b0f12a73c59354/19b0f12a73c59354 · 철회 논문 cache 0.
 리허설마다: 서버 정지 → `npm run baseline:restore` → 4/4 확인 후 `npm start`.
 
+## 본선 최종 동결 (2026-09-30 22:10 KST)
+- 발견: 21:50 이후 `claude -p` 가 HTTP 403 "organization has disabled Claude subscription access" → 모든 추출이 `rules` fallback (응답 `extractor: rules` 표기). 시연 환경의 실제 추출 경로 = rules
+- 발표 말투 표본 (각 표본 baseline 사본 DB·별도 서버 프로세스, 기대값 사전 고정): 1차 8/9 → 실패 1건 "…단계에서 접었어요" result 기대 stopped / 실제 unknown (rules 키워드 누락)
+- 수정 1건: `src/capture/extract.js` `resultOf` 에 "접었" 추가 (시연 범위 최소). 회귀 `test/integration/capture-result.test.js` +1
+- 재검증: 말투 9/9 (저장 차단 4/4 · 동일 접근 alias 2/2 · 분리 3/3) · `npm test` 75/75 · verify-gates 74/74 · verify-ui 29/29 (rules 경로)
+- 신규 발표 흐름 채택: 질문("…WB 해볼 생각인데 전에 해본 적 있어?") → DB 2 유지·화면 "2번" → 실행("…접었어요") → DB 3 → 재질문 "3번" → [지금 재검사] 철회됨·재검토 → 승인 게이트. 실제 발표 서버(4100, 운영 DB)·Chrome 1920×1080 리허설 **3/3** (각 12/12, 회차마다 baseline 4/4 복원)
+- 최종 baseline 4/4. 운영 도구 `scripts/rehearse.js` 추가 (제품 코드 아님)
+
 ## 정리 3종 (20:10)
 - 워크트리: 3개(capture/evidence/screens) 모두 main 착지·clean·미push 0·handoff = main 확인 후 제거, `git worktree prune`. 잔여 = main 1개. 검증용 임시 worktree(/tmp/rse-v/*) 3개도 제거
 - 브랜치/PR: track/capture·evidence·screens local+origin 삭제 (모두 origin/main 조상 확인). 잔여 = main. PR 0건

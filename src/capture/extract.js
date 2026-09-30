@@ -21,7 +21,7 @@ function stopStageRaw(text) {
 }
 
 function resultOf(text) {
-  if (/중단|멈췄|멈춤|멈춰/.test(text)) return 'stopped';
+  if (/중단|멈췄|멈춤|멈춰|접었/.test(text)) return 'stopped';
   if (/성공하지\s*(?:못|않)|실패/.test(text)) return 'failure';
   if (/부분(?:적)?/.test(text)) return 'partial';
   if (/성공/.test(text)) return 'success';
