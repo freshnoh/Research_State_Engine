@@ -1,0 +1,51 @@
+{
+  "_notice": "문헌 근거는 공개 실제 데이터(Crossref). 기대 상태는 2026-09-30 18:20 KST 실제 Crossref 응답으로 사전 확인한 값이며, 판정은 항상 현재 응답으로 한다.",
+  "samples": [
+    {
+      "key": "normal",
+      "label": "정상 표본",
+      "input_doi": "10.1038/nature14539",
+      "input_title": "Deep learning",
+      "input_authors": ["LeCun", "Bengio", "Hinton"],
+      "input_year": 2015,
+      "expected_status": "verified",
+      "observed_2026_09_30": "HTTP 200, title=Deep learning, authors=LeCun/Bengio/Hinton, year=2015, updated-by=[]"
+    },
+    {
+      "key": "corrupted",
+      "label": "시연용으로 일부러 손상시킨 표본",
+      "is_demo_corrupted": true,
+      "input_doi": "10.1016/j.cell.2006.07.024",
+      "input_title": "Quantum error correction thresholds in superconducting qubit lattices",
+      "input_authors": ["Takahashi", "Yamanaka"],
+      "input_year": 2006,
+      "expected_status": "mismatch",
+      "observed_2026_09_30": "HTTP 200, 실제 title=Induction of Pluripotent Stem Cells from Mouse Embryonic and Adult Fibroblast Cultures by Defined Factors, authors=Takahashi/Yamanaka, year=2006"
+    },
+    {
+      "key": "unverifiable",
+      "label": "Crossref 에서 확인되지 않는 DOI (형식 정상 테스트 값)",
+      "input_doi": "10.99999/rse.demo.2026.0001",
+      "input_title": null,
+      "input_authors": [],
+      "input_year": null,
+      "expected_status": "unverifiable",
+      "expected_reason": "not_found",
+      "observed_2026_09_30": "HTTP 404 Resource not found."
+    },
+    {
+      "key": "retracted",
+      "label": "실제 철회 논문 (Aβ*56) — G4 소급 대상, baseline cache 금지",
+      "input_doi": "10.1038/nature04533",
+      "expected_status": "retracted",
+      "observed_2026_09_30": "HTTP 200, title='RETRACTED ARTICLE: A specific amyloid-β protein assembly in the brain impairs memory', updated-by: expression_of_concern(2022-07-14, retraction-watch), retraction notice 10.1038/s41586-024-07691-8 (2024-06-24, sources retraction-watch + publisher)"
+    },
+    {
+      "key": "live_unseeded",
+      "label": "시드에 없는 정상 DOI — 발표 중 현장 입력용 (seed/cache 금지)",
+      "input_doi": "10.1038/s41586-021-03819-2",
+      "expected_status": "verified",
+      "observed_2026_09_30": "HTTP 200, title=Highly accurate protein structure prediction with AlphaFold, year=2021"
+    }
+  ]
+}

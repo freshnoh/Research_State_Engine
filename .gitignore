@@ -1,0 +1,22 @@
+# Local agent instructions
+CLAUDE.md
+
+# Secrets / local runtime
+.env
+.env.*
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+var/
+
+# Dependencies / build
+node_modules/
+dist/
+build/
+
+# OS / editor
+.DS_Store
+Thumbs.db

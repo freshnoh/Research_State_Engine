@@ -1,0 +1,6 @@
+sample_id,target,method,band_intensity,replicate
+S-001,RSE-01,western_blot,1.02,1
+S-002,RSE-01,western_blot,0.87,2
+S-003,RSE-01,western_blot,1.31,3
+S-004,RSE-01,western_blot,0.64,4
+S-005,RSE-01,western_blot,1.18,5

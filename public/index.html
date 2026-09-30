@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Research State Engine</title>
+</head>
+<body>
+<!-- SCREENS 트랙 소유. INTEGRATOR 가 둔 최소 placeholder. -->
+<h1>Research State Engine</h1>
+<p id="health">health 확인 중…</p>
+<script>
+fetch('/api/health').then(r => r.json()).then(h => {
+  document.getElementById('health').textContent =
+    'ok=' + h.ok + ' · attempts=' + h.counts.research_attempt + ' · evidence=' + h.counts.evidence + ' · ' + h.data_notice;
+});
+</script>
+</body>
+</html>

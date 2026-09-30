@@ -1,0 +1,16 @@
+{
+  "name": "research-state-engine",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Research State Engine — 연구 시도·근거·판단을 SQLite 한 파일에 자동 축적하고 재사용하는 단일 애플리케이션",
+  "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning src/server.js",
+    "db:init": "node --disable-warning=ExperimentalWarning scripts/db-init.js",
+    "seed": "node --disable-warning=ExperimentalWarning scripts/seed.js",
+    "test": "node --disable-warning=ExperimentalWarning --test --test-concurrency=1 \"test/**/*.test.js\""
+  }
+}
