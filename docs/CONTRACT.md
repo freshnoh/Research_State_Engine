@@ -263,6 +263,9 @@ EVIDENCE 가 `src/evidence/index.js` 에서 export 할 함수 (INTEGRATOR baseli
 | stop_stage | 재현성 검증, 재현성 확인 | `reproducibility_validation` |
 | stop_stage | 행동검증 | `behavioral_validation` |
 
+주의: seed 의 `RSE-03` 시도 method_norm `behavioral_assay` 는 위 사전 밖 값이다 (CAPTURE 는 "행동검증" 을 method 로 받으면 표기 통일값 `행동검증` 으로 저장).
+따라서 RSE-03 은 라이브 발화와 같은 접근으로 묶이지 않는다. 시연·검증은 사전에 있는 접근(RSE-01 western_blot/qpcr)만 쓴다.
+
 라이브 발화 기대값: "오늘 후보 단백질 RSE-01을 세포 모델에서 Western blot으로 측정했고, 재현성 검증 단계에서 중단했습니다."
 → target `RSE-01`, method `western_blot`, environment `cell`, result `stopped`, stop_stage `reproducibility_validation`, condition NULL.
 

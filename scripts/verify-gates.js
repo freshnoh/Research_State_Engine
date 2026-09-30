@@ -85,6 +85,8 @@ async function g1g2() {
   check('G1', '질문 발화 kind/saved', ['question', false], [qq.body?.kind, qq.body?.saved]);
   check('G1', '질문 발화 attempt 증가량 (HTTP 200 전제)', [200, 0], [qq.status, totalAttempts() - t0]);
   check('G2', '질문(입력 전) 같은 접근 수 = DB 2', 2, qq.body?.answer?.tried?.count);
+  const hy = await api('POST', '/api/chat', { text: 'RSE-01이 세포 모델에서 재현성 문제를 일으키는 원인은 항체 교차반응일 수도 있다는 가설입니다.' });
+  check('G1', '가설 발화 저장 안 됨 + 증가량 0 (HTTP 200 전제)', [200, false, 0], [hy.status, hy.body?.saved, totalAttempts() - t0]);
 
   const ex = await api('POST', '/api/chat', { text: LIVE_EXEC });
   check('G1', '실행 발화 kind/saved', ['execution', true], [ex.body?.kind, ex.body?.saved]);
@@ -113,14 +115,16 @@ async function g1g2() {
   check('G2', '중단 단계 전부 동일(저장값 계산)', ['reproducibility_validation', true],
     [q2.body?.approach?.common_stop_stage?.norm ?? null, q2.body?.approach?.common_stop_stage?.all_same ?? null]);
   // 하드코딩 아님: 다른 접근 키는 다른 DB 값이 나와야 한다
-  const other = await api('POST', '/api/chat', { text: 'RSE-03을 마우스에서 행동검증으로 다시 해도 될까요?' });
-  check('G2', '다른 접근(RSE-03 동물 행동검증) 수 = DB 1', 1, other.body?.answer?.tried?.count);
+  // (CONTRACT §7.2 사전에 있는 방법만 사용. seed 의 RSE-03 method_norm 'behavioral_assay' 는 사전 밖 값이라 비교 대상에서 제외)
+  const other = await api('POST', '/api/chat', { text: 'RSE-01을 세포 모델에서 qPCR로 다시 해도 될까요?' });
+  const qpcrDb = q(`SELECT COUNT(*) AS n FROM research_attempt WHERE target_norm='RSE-01' AND method_norm='qpcr' AND environment_norm='cell'`)[0].n;
+  check('G2', '다른 접근(RSE-01 qPCR 세포) 수 = DB 재조회 값(1)', [1, qpcrDb], [other.body?.answer?.tried?.count, 1]);
 
   // 부정 경로: 환경 미상 실행 발화 → 저장은 되지만 같은 접근 확정 금지
   const t1 = totalAttempts();
   const unk = await api('POST', '/api/chat', { text: '오늘 RSE-01을 Western blot으로 측정했고 재현성 검증 단계에서 중단했습니다.' });
   const unkRow = q('SELECT * FROM research_attempt ORDER BY id DESC LIMIT 1')[0];
-  check('G1', '환경 미상 실행 발화: 저장 +1 / environment_norm NULL', [1, null], [totalAttempts() - t1, unkRow?.environment_norm ?? 'missing']);
+  check('G1', '환경 미상 실행 발화: 저장 +1 / environment_norm NULL', [1, null], [totalAttempts() - t1, unkRow ? unkRow.environment_norm : 'missing']);
   check('G1', '환경 미상 → 같은 접근 수 불변(3)', 3, sameCount());
   const ap = await api('GET', `/api/approaches?attempt_id=${unk.body?.attempt?.id ?? unkRow?.id}`);
   check('G1', '환경 미상 → 판정 미확정', 'undetermined', ap.body?.match);
@@ -282,7 +286,7 @@ async function main() {
   }
   // gate 판정: 전부 통과 + 최소 검사 수 충족일 때만 PASS. 검사 0건 또는 단계 오류는 PASS 불가.
   // 이 harness 는 API/DB 관측만 한다. 화면 판정은 verify-ui 가 별도로 한다 (G5 화면 hash 비교 포함).
-  const MIN = { G1: 16, G2: 9, G3: 15, G4: 15, G5: 8, G6: 10 };
+  const MIN = { G1: 17, G2: 9, G3: 15, G4: 15, G5: 8, G6: 10 };
   for (const [g, min] of Object.entries(MIN)) {
     const v = (byGate[g] ??= { pass: 0, total: 0 });
     v.min = min;

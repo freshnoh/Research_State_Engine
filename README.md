@@ -70,7 +70,7 @@ npm run baseline:restore # 서버 정지 상태에서 복원 → 4값 검사 (4/
 | 테스트 | `node:test` |
 | 외부 연구 데이터 | **Crossref REST API** (`api.crossref.org/works/{doi}`) 하나뿐 |
 | 무결성 | SHA-256 (`node:crypto`) |
-| AI 모델 | 자연어 → 구조화 후보 추출: _통합 후 기록_ · 개발 도구: Claude Code (Claude Opus 5.5) |
+| AI 모델 | 자연어 → 구조화 후보 추출: 로컬 Claude Code CLI (`claude -p`, 계정 기본 모델 — 2026-09-30 실측 `modelUsage`: `claude-sonnet-5`, 보조 `claude-haiku-4-5-20251001`). CLI 실패 시 규칙 기반 추출로 전환하고 응답에 `extractor_fallback` 표기 · 개발 도구: Claude Code (Claude Opus 5.5) |
 
 LLM 은 값 추출·설명에만 쓰이며, 다음은 결정적 규칙(코드)이 판정합니다:
 실행 흔적 여부 · 같은 접근 여부 · 서지 비교 · 철회 판정 · 조회 실패 시 기존 상태 유지 · 승인 필요 여부.
