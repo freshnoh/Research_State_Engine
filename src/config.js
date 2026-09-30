@@ -29,5 +29,6 @@ export function loadConfig(overrides = {}) {
     crossrefMailto: get('CROSSREF_MAILTO', ''),
     crossrefTimeoutMs: Number(get('CROSSREF_TIMEOUT_MS', 10000)),
     llmMode: get('RSE_LLM', 'claude-cli'),
+    demoMode: get('DEMO_MODE', '0') === '1', // 발표 초기화(시연 전용) 허용 여부
   };
 }

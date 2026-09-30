@@ -41,7 +41,7 @@ export function analyzeApproach(db, key, { condition = null, selfId = null } = {
     missing_fields: missing,
   };
   if (missing.length) {
-    out.text = `${missing.map((f) => FIELD_LABEL[f]).join('·')}가 미상이라 같은 접근으로 확정하지 않았습니다`;
+    out.text = `${missing.map((f) => FIELD_LABEL[f]).join('·')}이 미상이라 같은 접근으로 확정하지 않았습니다`;
     return out;
   }
 

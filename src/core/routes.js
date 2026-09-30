@@ -9,7 +9,7 @@ export function register(router, { db, config }) {
     for (const t of ['research_attempt', 'evidence', 'judgment', 'evidence_judgment_link', 'approval_action', 'action_run', 'crossref_cache']) {
       counts[t] = db.prepare(`SELECT COUNT(*) AS n FROM ${t}`).get().n;
     }
-    return { ok: true, schema_version: SCHEMA_VERSION, db_path: config.dbPath, port: config.port, counts, data_notice: DATA_NOTICE };
+    return { ok: true, schema_version: SCHEMA_VERSION, db_path: config.dbPath, port: config.port, counts, data_notice: DATA_NOTICE, demo_mode: config.demoMode };
   });
 
   router.get('/api/attempts', () => ({

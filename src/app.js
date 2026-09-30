@@ -8,13 +8,14 @@ import * as core from './core/routes.js';
 import * as approval from './approval/routes.js';
 import * as capture from './capture/routes.js';
 import * as evidence from './evidence/routes.js';
+import * as demo from './core/demo.js';
 
 export function createApp(overrides = {}) {
   const config = loadConfig(overrides);
   const db = overrides.db ?? openDb(config.dbPath);
   const ctx = { db, config };
   const router = createRouter();
-  for (const mod of [core, approval, capture, evidence]) mod.register(router, ctx);
+  for (const mod of [core, approval, capture, evidence, demo]) mod.register(router, ctx);
 
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');

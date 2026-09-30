@@ -222,3 +222,16 @@ textarea:focus { outline: 2px solid #3f6798; outline-offset: 1px; }
   .answers { grid-template-columns: 1fr; }
   .c-grid, .b-top { grid-template-columns: 1fr; }
 }
+
+/* 발표 초기화 — 시연 전용 보조 control (메인 메뉴보다 낮은 시각 우선순위) */
+.demo-reset { margin-top: -14px; }
+.btn-demo { font: inherit; font-size: 13px; color: var(--muted); background: transparent; border: 1px dashed var(--line); border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+.btn-demo small { font-size: 11px; color: var(--idle); margin-left: 4px; border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+.btn-demo:hover:not(:disabled) { color: var(--silver); border-color: var(--silver); }
+.btn-demo:disabled { opacity: .5; cursor: progress; }
+.demo-dialog { background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 24px 26px; max-width: 520px; }
+.demo-dialog::backdrop { background: rgba(4, 7, 11, .6); }
+.demo-dialog p { margin: 0 0 20px; font-size: 17px; line-height: 1.6; }
+.demo-dialog-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.demo-toast { position: fixed; right: 24px; bottom: 24px; z-index: 20; max-width: 420px; padding: 10px 14px; border-radius: 8px; font-size: 15px; border: 1px solid #3f7a58; background: var(--ok-bg); color: #bfe6cd; }
+.demo-toast[data-tone="bad"] { border-color: #74423f; background: var(--bad-bg); color: #f3c4bf; }

@@ -55,19 +55,21 @@ const fmtTime = (iso) => (iso ? String(iso).slice(0, 16).replace('T', ' ') : '�
 const fmtDate = (iso) => (iso ? String(iso).slice(0, 10) : '미상');
 const orUnknown = (v) => (v == null || v === '' ? '미상' : v);
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+// 마지막 글자 받침 유무로 은/는 선택
+const topicJosa = (w) => { const c = String(w).charCodeAt(String(w).length - 1) - 0xac00; return c >= 0 && c < 11172 && c % 28 ? '은' : '는'; };
 
 /* ---------- API ---------- */
 class ApiError extends Error {
   constructor(status, code, message) { super(message); this.status = status; this.code = code; }
 }
-async function api(path, { method = 'GET', body, timeout = 20000 } = {}) {
+async function api(path, { method = 'GET', body, timeout = 20000, headers } = {}) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeout);
   let res;
   try {
     res = await fetch(path, {
       method, signal: ctrl.signal,
-      headers: body === undefined ? undefined : { 'content-type': 'application/json' },
+      headers: body === undefined ? headers : { 'content-type': 'application/json', ...headers },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch (e) {
@@ -148,8 +150,8 @@ function renderRecord() {
     h('div', { class: 'rh-title' }, rec.latest ? '✓ 새 연구 시도 1건 기록됨' : '최근 기록된 연구 시도 (방금 발화는 연구 시도로 추가되지 않았습니다)'),
     h('div', { class: 'rh-kv' }, kv.map(([k, v]) => h('span', null, h('small', null, k), h('b', null, orUnknown(v))))),
     missing.length ? h('div', { class: 'rh-note' },
-      `실제로 수행한 연구라는 사실은 기록했습니다. 말하지 않은 ${missing.join('·')}은(는) 추측하지 않고 미상으로 남겼습니다.`) : null,
-    !a.approach_key ? h('div', { class: 'rh-note' }, '대상·방법·환경 중 미상이 있어 같은 접근 비교에는 아직 사용할 수 없습니다.') : null);
+      `실제로 수행한 연구라는 사실은 기록했습니다. 말하지 않은 ${missing.join('·')}${topicJosa(missing[missing.length - 1])} 추측하지 않고 미상으로 남겼습니다.`) : null,
+    !a.approach_key ? h('div', { class: 'rh-note' }, '세부 정보가 부족해 같은 접근 비교에는 아직 사용할 수 없습니다.') : null);
   line.textContent = rec.line;
   line.dataset.empty = '0';
   line.dataset.attemptId = a.id;
@@ -366,7 +368,7 @@ async function bAction(label, fn) {
     const msg = await fn();
     const ok = await loadB(true);
     if (ok) setStatus('b', 'success', msg);
-    else setStatus('b', 'error', `${label}는 처리됐으나 목록을 다시 불러오지 못했습니다`);
+    else setStatus('b', 'error', `${label}${topicJosa(label)} 처리됐으나 목록을 다시 불러오지 못했습니다`);
   } catch (e) {
     setStatus('b', 'error', `${label} 실패: ${errText(e)}`);
     await loadB(true);
@@ -570,6 +572,52 @@ async function recheck() {
 }
 
 /* =====================================================================
+ * 발표 초기화 (시연 전용). 서버가 DEMO_MODE 일 때만 표시한다.
+ * 성공 응답(서버가 다시 읽은 baseline 검사 통과)을 받은 뒤에만 페이지를 새로 읽어
+ * 이전 시연의 화면 상태를 모두 버리고 화면 1을 서버 값으로 다시 그린다.
+ * ===================================================================== */
+let demoBusy = false;
+async function initDemoReset() {
+  try {
+    const hl = await api('/api/health');
+    tid('demo-reset').hidden = hl.demo_mode !== true;
+  } catch { tid('demo-reset').hidden = true; }
+}
+function demoToast(tone, text) {
+  const t = tid('demo-toast');
+  t.dataset.tone = tone; t.textContent = text; t.hidden = false;
+  clearTimeout(demoToast.timer);
+  demoToast.timer = setTimeout(() => { t.hidden = true; }, 8000);
+}
+async function confirmDemoReset() {
+  if (demoBusy) return;
+  demoBusy = true;
+  const dlg = tid('demo-reset-dialog');
+  const btns = [tid('demo-reset-btn'), tid('demo-reset-confirm'), tid('demo-reset-cancel')];
+  btns.forEach((b) => { b.disabled = true; });
+  tid('demo-reset-confirm').textContent = '초기화 중…';
+  try {
+    const r = await api('/api/demo/reset', { method: 'POST', body: {}, headers: { 'x-rse-demo': 'reset' }, timeout: 30000 });
+    need(r.ok === true && isObj(r.baseline) && r.baseline.total > 0 && r.baseline.passed === r.baseline.total, '초기화 사후 검사');
+    location.replace('/?demo_reset=ok#a');
+    return;
+  } catch (e) {
+    dlg.close();
+    demoToast('bad', `초기화하지 못했습니다: ${errText(e)}`);
+  }
+  demoBusy = false;
+  btns.forEach((b) => { b.disabled = false; });
+  tid('demo-reset-confirm').textContent = '초기화';
+}
+tid('demo-reset-btn').addEventListener('click', () => { if (!demoBusy) tid('demo-reset-dialog').showModal(); });
+tid('demo-reset-cancel').addEventListener('click', () => tid('demo-reset-dialog').close());
+tid('demo-reset-confirm').addEventListener('click', confirmDemoReset);
+if (new URLSearchParams(location.search).get('demo_reset') === 'ok') {
+  history.replaceState(null, '', '/#a');
+  demoToast('ok', '✓ 발표 시작 상태로 복원했습니다');
+}
+
+/* =====================================================================
  * 내비게이션 / 시작
  * ===================================================================== */
 function show(screen) {
@@ -596,3 +644,4 @@ renderRecord(); renderAnswer(); renderLog(); renderB(); renderC();
 show((location.hash || '#a').slice(1));
 loadC(false);
 loadB(false);
+initDemoReset();

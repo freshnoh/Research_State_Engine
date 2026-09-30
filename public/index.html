@@ -35,7 +35,19 @@
       <p>색과 글자를 함께 씁니다. 상태는 항상 글자로도 적혀 있습니다.</p>
       <p><b>조회 실패 ≠ 논문 부재</b><br>못 찾은 것과 없는 것을 구분해서 표시합니다.</p>
     </div>
+    <!-- 시연 전용: 서버가 DEMO_MODE 일 때만 보인다 (일반 제품 기능 아님) -->
+    <div class="demo-reset" data-testid="demo-reset" hidden>
+      <button type="button" class="btn-demo" data-testid="demo-reset-btn" title="시연용 — 발표 시작 상태로 되돌립니다">발표 초기화 <small>시연용</small></button>
+    </div>
   </aside>
+  <dialog class="demo-dialog" data-testid="demo-reset-dialog" aria-labelledby="demo-reset-msg">
+    <p id="demo-reset-msg">발표 시작 상태로 되돌립니다.<br>이번 시연에서 추가된 연구 시도와 재검사 상태가 초기화됩니다.</p>
+    <div class="demo-dialog-actions">
+      <button type="button" class="btn btn-primary" data-testid="demo-reset-confirm">초기화</button>
+      <button type="button" class="btn" data-testid="demo-reset-cancel">취소</button>
+    </div>
+  </dialog>
+  <div class="demo-toast" data-testid="demo-toast" role="status" hidden></div>
 
   <div class="main">
     <header class="notice" data-testid="data-notice" role="note">
@@ -131,8 +143,8 @@
       <div class="screen-head">
         <div>
           <h1 id="title-c">연구 상태</h1>
-          <p class="lead">연구 시도와 그때 사용한 논문을 연결해 둡니다. 논문의 상태를 다시 확인했을 때 철회가 확인되면, 그 논문을 사용했던 과거 판단도 다시 보도록 알려줍니다.</p>
-          <p class="lead lead-sub flow">과거 연구 시도 → 사용한 논문 → 논문의 현재 상태 → 그 논문을 근거로 한 과거 판단 → 철회되면 <b>재검토 필요</b></p>
+          <p class="lead">연구 시도 이력과, 과거 판단에 사용한 논문의 현재 상태를 함께 봅니다. 논문의 상태를 다시 확인했을 때 철회가 확인되면, 그 논문을 사용했던 과거 판단도 다시 보도록 알려줍니다.</p>
+          <p class="lead lead-sub flow">과거 판단 → 그때 사용한 논문 → 논문의 현재 상태 → 철회되면 그 판단에 <b>재검토 필요</b></p>
         </div>
         <div class="status" data-testid="c-status" data-state="idle"><span class="dot"></span><span class="status-text">대기</span></div>
       </div>
@@ -152,7 +164,7 @@
           <p class="col-note">철회 이전 시점을 재현한 시연용 기준 상태입니다. 논문·DOI·현재 철회 정보는 공개 실제 데이터이고, 기관의 과거 판단은 시연용 합성 기록입니다.</p>
           <div class="sub-title">사용한 논문 · 현재 상태 <span class="count" data-testid="evidence-count"></span></div>
           <div class="rows" data-testid="evidence-list"></div>
-          <div class="sub-title">그 논문을 근거로 한 과거 판단 <span class="count" data-testid="judgment-count"></span></div>
+          <div class="sub-title">과거 판단 <span class="count" data-testid="judgment-count"></span></div>
           <p class="col-note meaning"><b>철회됐다고 해서 과거 판단이 틀렸다는 뜻은 아닙니다.</b> ‘재검토 필요’는 사람이 그 판단을 다시 보도록 표시한 것입니다.</p>
           <div class="rows" data-testid="judgment-list"></div>
         </div>

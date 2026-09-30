@@ -24,6 +24,7 @@ const ATTRS = ['data-approval-id', 'data-status', 'data-run-id', 'data-attempt-i
 const ALLOWED_API = new Set([
   '/api/chat', '/api/attempts', '/api/evidence', '/api/judgments', '/api/approvals', '/api/runs', '/api/approval/target',
   '/api/actions', '/api/recheck',
+  '/api/health', '/api/demo/reset', // 발표 초기화(시연 전용): DEMO_MODE 표시 여부 확인 + 초기화
 ]);
 
 test('필수 data-testid 23종이 모두 소스에 정의됨 (기대 23 / 실제 N)', () => {
@@ -70,8 +71,21 @@ test('데이터 고지·조회 실패 ≠ 논문 부재 문구가 index.html 에
   }
 });
 
-test('저장/확인/초기화(reset) 버튼 없음 · 외부 스크립트/폰트 없음', () => {
-  const labels = [...html.matchAll(/<button[^>]*>([\s\S]*?)<\/button>/g)].map((m) => m[1].replace(/<[^>]+>/g, ''));
+// 예외 1건: 본선 시연 전용 [발표 초기화] (대표 승인). 기본 hidden 블록 + dialog 안에만 있고,
+// 서버 health 의 demo_mode === true 일 때만 보이게 한다. 그 밖의 저장/초기화 버튼은 여전히 금지.
+const DEMO_BLOCK = /<div class="demo-reset" data-testid="demo-reset" hidden>[\s\S]*?<\/div>/;
+const DEMO_DIALOG = /<dialog class="demo-dialog"[\s\S]*?<\/dialog>/;
+test('발표 초기화는 시연 전용 hidden 블록에만 있고 demo_mode=true 일 때만 표시', () => {
+  assert.ok(DEMO_BLOCK.test(html), 'hidden demo-reset 블록');
+  assert.ok(DEMO_DIALOG.test(html), 'demo-reset dialog');
+  assert.ok(DEMO_BLOCK.exec(html)[0].includes('발표 초기화') && DEMO_BLOCK.exec(html)[0].includes('시연용'));
+  assert.ok(js.includes("tid('demo-reset').hidden = hl.demo_mode !== true"), 'demo_mode 조건 표시');
+  assert.equal((js.match(/tid\('demo-reset'\)\.hidden = false/g) || []).length, 0);
+});
+
+test('저장/확인/초기화(reset) 버튼 없음 (시연 전용 블록 제외) · 외부 스크립트/폰트 없음', () => {
+  const productHtml = html.replace(DEMO_BLOCK, '').replace(DEMO_DIALOG, '');
+  const labels = [...productHtml.matchAll(/<button[^>]*>([\s\S]*?)<\/button>/g)].map((m) => m[1].replace(/<[^>]+>/g, ''));
   labels.push(...[...js.matchAll(/h\('button',[^\n]*?\}, '([^']+)'/g)].map((m) => m[1]));
   assert.ok(labels.length >= 8, `버튼 라벨 ${labels.length}개`);
   assert.deepEqual(labels.filter((t) => /저장|초기화|reset|리셋/i.test(t)), []);

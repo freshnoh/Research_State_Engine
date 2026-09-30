@@ -26,6 +26,7 @@
 | `CROSSREF_MAILTO` | (빈 값) | Crossref polite pool 용 mailto (선택) |
 | `CROSSREF_TIMEOUT_MS` | 10000 | Crossref 조회 timeout |
 | `RSE_LLM` | `claude-cli` | 추출기 선택: `claude-cli` \| `rules` |
+| `DEMO_MODE` | `0` | `1` 이면 본선 시연 전용 [발표 초기화]를 켠다 (§5.4). 일반 실행에서는 켜지 않는다 |
 
 - 여러 인스턴스를 동시에 띄울 때는 `DB_PATH`·`PORT` 를 서로 다르게 둔다. 테스트는 임시 디렉터리의 DB 를 쓴다.
 - credential 은 환경변수 또는 gitignore 된 로컬 파일만 쓴다. `.env*`, `*.db`, `var/` 는 저장소에 올리지 않는다.
@@ -135,7 +136,7 @@ LLM 이 추출한 값은 작은 별칭 사전(§7.2, `src/capture/dict.js`)으�
 ## 5. API 계약 (화면 A/B/C 가 호출)
 
 ### 5.0 공용 읽기 (`src/core/routes.js`)
-- `GET /api/health` → `{ok, schema_version, db_path, port, counts:{…}, data_notice}`
+- `GET /api/health` → `{ok, schema_version, db_path, port, counts:{…}, data_notice, demo_mode}`
 - `GET /api/attempts` → `{attempts: Attempt[]}` (id 내림차순)
 - `GET /api/evidence` → `{evidence: Evidence[]}`
 - `GET /api/judgments` → `{judgments: Judgment[]}`
@@ -217,6 +218,17 @@ LLM 이 추출한 값은 작은 별칭 사전(§7.2, `src/capture/dict.js`)으�
 - `POST /api/approvals/:id/approve` → 200 `{approval}` : 현재 hash == hash_before 확인 후 덮어쓰기, hash_after 기록
 - `POST /api/approvals/:id/reject` → 200 `{approval}` : 원본 불변
 
+### 5.4 발표 초기화 (`src/core/demo.js`) — 본선 시연 전용 운영 예외 (대표 승인, 일반 제품 기능 아님)
+- `DEMO_MODE=1` 일 때만 라우트가 생긴다. 꺼져 있으면 `/api/demo/reset` 은 404, 화면 버튼도 숨김.
+- `POST /api/demo/reset` (헤더 `x-rse-demo: reset` 필수) → 200 `{ok: true, reset_at, baseline: {passed, total, checks, guard}, extra}`
+  - 소켓 peer 주소가 루프백(`127.0.0.1`, `::1`, `::ffff:127.0.0.1`)이 아니면 403 `LOCAL_ONLY`. Host·X-Forwarded-For·본문 값은 판정에 쓰지 않는다.
+  - 전용 헤더가 없으면 403 `HEADER_REQUIRED` (다른 사이트가 보내는 교차 출처 단순 POST 차단). POST 외 method 는 라우트 없음(404).
+- 복원 원천 = CLI 와 같은 baseline 사본 `$DATA_DIR/baseline/rse.baseline.db`. 실행 중인 DB 파일을 덮어쓰지 않고, 열린 연결에서 baseline 사본을 ATTACH 해
+  한 트랜잭션으로 모든 테이블(`schema_meta` 제외)과 `sqlite_sequence` 를 사본 내용으로 바꾼다. 원본 측정값 파일은 fixture → 임시 파일 → hash 확인 → rename.
+- 성공 판정은 사후 검사로만: baseline 4값 검사기(`src/core/baseline.js`, CLI 와 동일) 4/4 + 철회 논문 cache 0 + live 시도 0 + 테이블별 행 수 = 사본.
+  하나라도 틀리면 500 `{ok: false, error: {code: 'RESET_POSTCHECK_FAILED'}}` (성공 응답·성공 표시 없음).
+- 서버 시작·재시작 때 자동 초기화 없음. 화면은 성공 응답을 받은 뒤에만 페이지를 새로 읽어 이전 시연 표시를 버리고 화면 1을 그린다.
+
 ## 6. fixture / seed 형식
 
 ### 6.1 seed (`fixtures/seed/seed.json`)
@@ -254,7 +266,7 @@ normal / corrupted(시연용 손상) / unverifiable(404, 형식 정상) / retrac
 ### 6.4 G5 원본 (`fixtures/approval/original_measurements.csv`)
 baseline 복원 시 `$APPROVAL_DIR/original_measurements.csv` 로 복사. 기준 hash 는 이 fixture 의 sha256.
 
-### 6.5 시연 baseline (`scripts/baseline.js`) — 제품 UI 가 아닌 시연 준비 절차
+### 6.5 시연 baseline (`scripts/baseline.js`, 검사기 정의 `src/core/baseline.js`) — 시연 준비 절차
 - `npm run baseline:create` → `$DATA_DIR/baseline/rse.baseline.db` (seed + 근거 사전 조회, 철회 논문 cache 없음)
 - `npm run baseline:restore` → 서버가 PORT 에서 실행 중이면 거부. DB_PATH·원본 파일 복원 후 4값 검사
 - `npm run baseline:check` → 같은 접근=2 / 과거 판단 근거=verified / 재검토 표시=0 / 원본 hash=fixture hash (+ 철회 논문 cache 0)
@@ -267,7 +279,7 @@ baseline 복원 시 `$APPROVAL_DIR/original_measurements.csv` 로 복사. 기준
   카드 = 작업 / 승인 필요 이유 / 영향 대상 / hash 앞 8자리. 승인 전·후 hash 나란히.
 - 화면 C 연구 상태: `GET /api/attempts`(원문+구조화), `GET /api/judgments`, `GET /api/evidence`, 상단 [지금 재검사] = `POST /api/recheck`.
   재검토 필요 판단·영향 근거에 눈에 띄는 표시(색 + 텍스트).
-- 모든 화면에 `DATA_NOTICE` 표시. 데모 과거 상태에는 `demo_label` 표시. 제품 reset 버튼 없음.
+- 모든 화면에 `DATA_NOTICE` 표시. 데모 과거 상태에는 `demo_label` 표시. 제품 reset 버튼 없음 — 예외는 `DEMO_MODE=1` 일 때만 보이는 왼쪽 메뉴 아래 작은 [발표 초기화 · 시연용] 1개 (§5.4, 확인창 [초기화]/[취소]).
 
 ### 7.1 검증용 `data-testid` (`scripts/verify-ui.js` 가 실제 브라우저로 사용자 흐름을 검증할 때 사용)
 단일 페이지 `public/index.html`. 화면 전환은 `nav-a` / `nav-b` / `nav-c`.

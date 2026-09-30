@@ -44,7 +44,7 @@ Research State Engine 은 논문 자체가 아니라 **연구 시도의 상태�
 
 ## 시연 흐름 (G1~G6)
 
-검증 결과 (2026-10-01 실측, 화면 문구·메뉴 순서 정리 후): `npm test` 78/78 · `verify-gates` API/DB 검증 74/74 · `verify-ui` 1920×1080 실제 브라우저 화면 검증 32/32 · LLM 경로 시연 흐름 반복 검증 3/3, G1~G6 PASS.
+검증 결과 (2026-10-01 실측, 발표 초기화 추가 후): `npm test` 85/85 · `verify-gates` API/DB 검증 74/74 · `verify-ui` 1920×1080 실제 브라우저 화면 검증 37/37 · LLM 경로 시연 흐름 반복 검증 3/3, G1~G6 PASS.
 
 1. **G1 대화 기반 축적** — baseline 같은 접근 2건 → "오늘 후보 단백질 RSE-01을 세포 모델에서 Western blot으로 측정했고, 재현성 검증 단계에서 중단했습니다." → 저장 확인 없이 3건, 화면 C 새 행. 계획·질문은 0건 증가
 2. **G2 재사용** — 다시 질문 → "이 접근은 3번 시도됐고 모두 재현성 검증 단계에서 멈췄습니다" (DB 실제값 계산)
@@ -147,6 +147,8 @@ node scripts/verify-gates.js   # G1~G6 실서버·실DB·실Crossref 통합 검�
 npm run baseline:create  # var/baseline/rse.baseline.db 생성 (seed 기준 초기 상태)
 npm run baseline:restore # 서버 정지 상태에서 복원 → 4값 검사 (4/4 가 아니면 초기 상태 불일치)
 ```
+
+본선 시연 전용: 서버를 `DEMO_MODE=1` 로 띄우면 왼쪽 메뉴 아래 작은 [발표 초기화 · 시연용] 버튼이 보인다. 같은 baseline 사본으로 DB·원본 측정값 파일을 되돌리고, 4값 사후 검사가 4/4 일 때만 성공으로 표시한다. 이 컴퓨터(루프백)에서 온 요청만 처리하며, `DEMO_MODE` 없이 띄운 일반 실행에는 버튼도 API 도 없다.
 
 ## 기술 구성
 

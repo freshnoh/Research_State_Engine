@@ -34,13 +34,13 @@ const supCall = async (p, b) => (await fetch(SUP + p, { method: 'POST', body: JS
 let server = null;
 async function startServer() {
   if (SUP) {
-    const r = await supCall('/start', { name: 'verify-ui', port: PORT, dbPath: `${VDIR}/rse.db`, dataDir: VDIR });
+    const r = await supCall('/start', { name: 'verify-ui', port: PORT, dbPath: `${VDIR}/rse.db`, dataDir: VDIR, extraEnv: { DEMO_MODE: '1' } });
     if (!r.ok) throw new Error('UI 검증 서버 시작 실패 (supervisor)');
     server = 'sup';
     return;
   }
   server = spawn('wsl.exe', ['-d', 'Ubuntu', '--', 'bash', '-c',
-    `cd ${WSL_ROOT} && PORT=${PORT} DATA_DIR=${VDIR} DB_PATH=${VDIR}/rse.db APPROVAL_DIR=${VDIR}/approval exec node --disable-warning=ExperimentalWarning src/server.js`],
+    `cd ${WSL_ROOT} && DEMO_MODE=1 PORT=${PORT} DATA_DIR=${VDIR} DB_PATH=${VDIR}/rse.db APPROVAL_DIR=${VDIR}/approval exec node --disable-warning=ExperimentalWarning src/server.js`],
   { stdio: 'ignore', windowsHide: true });
   for (let i = 0; i < 60; i++) {
     try { if ((await fetch(`${BASE}/api/health`)).ok) return; } catch { /* not yet */ }
@@ -62,7 +62,7 @@ const api = async (p) => (await fetch(BASE + p)).json();
 
 async function main() {
   fs.mkdirSync(SHOTS, { recursive: true });
-  console.log(wsl(`cd ${WSL_ROOT} && VERIFY_DIR=${VDIR} node --disable-warning=ExperimentalWarning scripts/verify-gates.js --prepare-only`).trim());
+  console.log(wsl(`cd ${WSL_ROOT} && VERIFY_DIR=${VDIR} node --disable-warning=ExperimentalWarning scripts/verify-gates.js --prepare-only && mkdir -p ${VDIR}/baseline && cp var/baseline/rse.baseline.db ${VDIR}/baseline/rse.baseline.db`).trim()); // 발표 초기화 검증용 baseline 사본
   await startServer();
   const b = await launch({ width: 1920, height: 1080 }); // 발표 해상도
   const shot = (n) => b.screenshot(path.join(SHOTS, `${n}.png`));
@@ -219,6 +219,48 @@ async function main() {
     check('G6', '재시작 후 화면: 시도 행 수', before6[0], await b.count('attempt-row'));
     check('G6', '재시작 후 화면: 철회됨 / 재검토 필요', ['retracted', '1'], [await evStatus(), await jReview()]);
     await shot('08-after-restart');
+
+    // DEMO: 발표 초기화 (DEMO_MODE=1 · 시연 전용). 브라우저에 이전 시연 결과(재검사 요약·발화 기록)를 남긴 뒤
+    //   취소 → 요청 0 · 상태 불변 / 초기화 → 서버 baseline + 화면 1 · 이전 표시 없음
+    check('DEMO', '발표 초기화 버튼 표시 (시연용 표기 · 왼쪽 메뉴 아래)', [true, true, true], [
+      await b.evaluate(`!document.querySelector('[data-testid="demo-reset"]').hidden`),
+      (await b.text('demo-reset-btn'))?.includes('시연용'),
+      await b.evaluate(`document.querySelector('.nav').getBoundingClientRect().bottom < document.querySelector('[data-testid="demo-reset-btn"]').getBoundingClientRect().top`)]);
+    await nav('c');
+    await b.click('recheck-btn');
+    await b.waitFor(`!document.querySelector('[data-testid="recheck-summary"]').hidden && !document.querySelector('[data-testid="recheck-btn"]').disabled`, 60000);
+    await send(PLAN);
+    await b.evaluate(`(() => { window.__resetCalls = 0; const f = window.fetch; window.fetch = (u, ...a) => { if (String(u).includes('/api/demo/reset')) window.__resetCalls++; return f(u, ...a); }; return true; })()`);
+    const pre = await snapApi();
+    const hashPre = (await api('/api/approval/target')).hash_short;
+    const staleLog = await b.evaluate(`document.querySelectorAll('[data-testid="chat-log"] > li').length`);
+    await b.click('demo-reset-btn');
+    const dlgText = await b.evaluate(`document.querySelector('[data-testid="demo-reset-dialog"]').open ? document.querySelector('[data-testid="demo-reset-dialog"]').innerText : null`);
+    await shot('09-demo-reset-dialog');
+    await b.click('demo-reset-cancel');
+    check('DEMO', '확인창 문구 → 취소: 요청 0 · 서버 상태/원본 hash/화면 기록 불변', [true, 0, pre, hashPre, staleLog], [
+      !!dlgText && dlgText.includes('발표 시작 상태로 되돌립니다') && dlgText.includes('초기화') && dlgText.includes('취소'),
+      await b.evaluate('window.__resetCalls'), await snapApi(), (await api('/api/approval/target')).hash_short, await b.evaluate(`document.querySelectorAll('[data-testid="chat-log"] > li').length`)]);
+    await b.click('demo-reset-btn');
+    await b.click('demo-reset-confirm');
+    await b.waitFor(`(document.querySelector('[data-testid="demo-toast"]')?.innerText || '').includes('발표 시작 상태로 복원했습니다')`, 30000);
+    await b.waitFor(`document.querySelectorAll('[data-testid="attempt-row"]').length > 0`, 10000);
+    const at = (await api('/api/attempts')).attempts;
+    const evNow = (await api('/api/evidence')).evidence.find((e) => e.input.doi === '10.1038/nature04533');
+    const jsNow = (await api('/api/judgments')).judgments;
+    check('DEMO', '초기화 후 API: 같은 접근 2 · live 0 · Aβ 확인 · 재검토 0 · 원본 hash 기준 · 승인/분석 0', [2, 0, 'verified', 0, fixtureHash, 0, 0], [
+      at.filter((a) => a.approach_key === 'RSE-01|western_blot|cell').length, at.filter((a) => a.source === 'live').length, evNow.status,
+      jsNow.filter((j) => j.needs_review).length, (await api('/api/approval/target')).hash_short,
+      (await api('/api/approvals')).approvals.length, (await api('/api/runs')).runs.length]);
+    check('DEMO', '초기화 후 화면: 화면 1 · 발화 기록 0 · 새 기록 표시 없음 · 이전 답 없음 · 재검사 요약 없음', ['a', '#a', 0, true, '', true, true], [
+      await b.evaluate(`document.querySelector('.screen:not([hidden])').dataset.screen`), await b.evaluate('location.hash + location.search'),
+      await b.evaluate(`document.querySelectorAll('[data-testid="chat-log"] > li').length`), await b.evaluate(`document.querySelector('[data-testid="record-head"]').hidden`),
+      (await b.text('answer-source'))?.trim() ?? '', await b.evaluate(`document.querySelector('[data-testid="recheck-summary"]').hidden`),
+      !/\d번/.test((await b.text('answer-tried')) ?? '')]);
+    await shot('10-demo-reset-done');
+    await nav('c');
+    check('DEMO', '초기화 후 화면 C: Aβ 확인 · 재검토 표시 0 · 행 수 = API', ['verified', 0, at.length], [
+      await evStatus(), await b.evaluate(`document.querySelectorAll('[data-testid="judgment-row"][data-needs-review="1"]').length`), await b.count('attempt-row')]);
     check('UI', '페이지 JS 예외 0', [], b.consoleErrors);
   } catch (e) {
     check('UI', '흐름 실행 오류', 'no error', String(e.message || e), false);
@@ -228,7 +270,7 @@ async function main() {
     await stopServer();
   }
   // 화면 판정: gate 별 전부 통과 + 최소 검사 수 충족일 때만 PASS(UI). 흐름 오류가 나면 이후 검사 누락 → 최소 수 미달 → FAIL.
-  const MIN = { UI: 4, G1: 8, G2: 4, G3: 2, G4: 5, G5: 6, G6: 3 };
+  const MIN = { UI: 4, G1: 8, G2: 4, G3: 2, G4: 5, G5: 6, G6: 3, DEMO: 5 };
   const byGate = {};
   for (const r of results) { byGate[r.gate] ??= { pass: 0, total: 0 }; byGate[r.gate].total++; if (r.pass) byGate[r.gate].pass++; }
   for (const [g, min] of Object.entries(MIN)) {

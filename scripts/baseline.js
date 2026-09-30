@@ -8,12 +8,14 @@ import path from 'node:path';
 import { loadConfig } from '../src/config.js';
 import { openDb } from '../src/db/index.js';
 import { loadSeed } from '../src/core/seed.js';
-import { sha256File, ORIGINAL_FIXTURE, originalPath } from '../src/approval/gate.js';
+import { ORIGINAL_FIXTURE, originalPath } from '../src/approval/gate.js';
+import { RETRACTED_DOI, baselineDbPath, checkBaseline } from '../src/core/baseline.js';
 
-const RETRACTED_DOI = '10.1038/nature04533';
+export { checkBaseline };
+
 const cfg = loadConfig();
 const baselineDir = path.join(cfg.dataDir, 'baseline');
-const baselineDb = path.join(baselineDir, 'rse.baseline.db');
+const baselineDb = baselineDbPath(cfg);
 
 const rmDb = (p) => { for (const s of ['', '-wal', '-shm', '-journal']) fs.rmSync(p + s, { force: true }); };
 
@@ -22,28 +24,6 @@ function portInUse(port) {
     const s = net.connect({ port, host: '127.0.0.1' }, () => { s.destroy(); resolve(true); });
     s.on('error', () => resolve(false));
   });
-}
-
-export function checkBaseline(dbPath, originalFile) {
-  const db = openDb(dbPath);
-  const same = db.prepare(`SELECT COUNT(*) AS n FROM research_attempt
-    WHERE target_norm='RSE-01' AND method_norm='western_blot' AND environment_norm='cell'`).get().n;
-  const ev = db.prepare(`SELECT e.status FROM evidence e JOIN evidence_judgment_link l ON l.evidence_id=e.id
-    JOIN judgment j ON j.id=l.judgment_id WHERE e.input_doi=? AND j.is_synthetic=1`).all(RETRACTED_DOI);
-  const flagged = db.prepare('SELECT COUNT(*) AS n FROM judgment WHERE needs_review=1').get().n;
-  const cached = db.prepare('SELECT COUNT(*) AS n FROM crossref_cache WHERE lower(doi)=?').get(RETRACTED_DOI).n;
-  db.close();
-  const expectHash = sha256File(ORIGINAL_FIXTURE);
-  const actualHash = fs.existsSync(originalFile) ? sha256File(originalFile) : null;
-  const checks = [
-    { name: '같은 접근(RSE-01|western_blot|cell)', expected: 2, actual: same },
-    { name: '과거 판단 근거 상태', expected: 'verified', actual: ev.length === 1 ? ev[0].status : `rows=${ev.length}` },
-    { name: '재검토 표시 판단 수', expected: 0, actual: flagged },
-    { name: '승인 테스트 원본 hash', expected: expectHash.slice(0, 16), actual: actualHash ? actualHash.slice(0, 16) : 'missing' },
-  ];
-  for (const c of checks) c.pass = c.expected === c.actual;
-  const guard = { name: '철회 논문 현재 응답 cache 없음', expected: 0, actual: cached, pass: cached === 0 };
-  return { checks, guard, passed: checks.filter((c) => c.pass).length, total: checks.length, ok: checks.every((c) => c.pass) && guard.pass };
 }
 
 async function create() {
