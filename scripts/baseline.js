@@ -53,9 +53,16 @@ async function create() {
   const db = openDb(tmp);
   loadSeed(db);
   // 일반 근거 사전 조회 cache 는 EVIDENCE 모듈이 제공하면 사용한다 (철회 논문 제외)
-  const prewarm = await import('../src/evidence/index.js').then((m) => m.prewarmBaselineCache).catch(() => null);
-  let prewarmed = null;
-  if (prewarm) prewarmed = await prewarm(db, cfg, { exclude: [RETRACTED_DOI] });
+  // 모듈이 아예 없을 때만 건너뛴다. 모듈이 있는데 오류가 나면 숨기지 않고 실패한다.
+  const evidenceIndex = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'src', 'evidence', 'index.js');
+  let prewarmed = 'skipped: src/evidence/index.js 없음';
+  if (fs.existsSync(evidenceIndex)) {
+    const { prewarmBaselineCache } = await import('../src/evidence/index.js');
+    if (typeof prewarmBaselineCache !== 'function') throw new Error('src/evidence/index.js 에 prewarmBaselineCache 없음 (CONTRACT §5.2)');
+    prewarmed = await prewarmBaselineCache(db, cfg, { exclude: [RETRACTED_DOI] });
+  }
+  const leaked = db.prepare('SELECT COUNT(*) AS n FROM crossref_cache WHERE lower(doi)=?').get(RETRACTED_DOI).n;
+  if (leaked) throw new Error('baseline 거부: 철회 논문 현재 응답이 cache 에 들어감');
   db.exec('PRAGMA wal_checkpoint(TRUNCATE);');
   db.close();
   rmDb(baselineDb);
