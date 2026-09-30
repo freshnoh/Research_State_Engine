@@ -1,4 +1,4 @@
-// CAPTURE 소유. CONTRACT §7.2 데모 정규화 사전 — 시연 범위의 최소 별칭만. 범용 ontology/유사도 없음.
+// CONTRACT §6.2 데모 정규화 사전 — 시연 범위의 최소 별칭만. 범용 ontology/유사도 없음.
 // 규칙: 사전에 있으면 norm, 없으면 "원문 표기 통일값"(target/method) 또는 NULL(environment: enum 한정).
 import { ENVIRONMENT } from '../contract/enums.js';
 

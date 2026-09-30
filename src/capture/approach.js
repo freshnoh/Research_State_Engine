@@ -1,4 +1,4 @@
-// CAPTURE 소유. 같은 접근 판정 — deterministic, 실제 SQLite 를 매번 다시 읽는다. LLM 관여 없음.
+// 같은 접근 판정 — deterministic, 실제 SQLite 를 매번 다시 읽는다. LLM 관여 없음.
 //   approach_key = target_norm | method_norm | environment_norm  (조건·결과·중단 단계는 키 제외)
 //   same            : 세 칸 동일
 //   exact_repeat    : same + condition_norm 동일(둘 다 값이 있을 때만)

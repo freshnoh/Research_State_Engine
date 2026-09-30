@@ -1,4 +1,4 @@
-// 공용 enum 과 화면 표시 문구 (INTEGRATOR 소유, docs/CONTRACT.md §3)
+// 공용 enum 과 화면 표시 문구 (docs/CONTRACT.md §3)
 
 export const ENVIRONMENT = {
   in_vitro: '시험관',

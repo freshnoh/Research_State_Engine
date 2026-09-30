@@ -1,4 +1,4 @@
-// 근거 검증 · 재검사 · 소급 (EVIDENCE 소유). CONTRACT §2, §4, §5.2.
+// 근거 검증 · 재검사 · 소급. CONTRACT §2, §4, §5.2.
 // 판정은 전부 deterministic rule 이다. LLM 을 쓰지 않는다.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -135,7 +135,7 @@ export function createEvidenceService({ db, config, fetch: fetchImpl = globalThi
       }
     }
 
-    // 조회 전 임시 행(한 번도 조회 안 됨)의 최초 판정은 "상태 변경" 이 아니다 (INTEGRATOR 통합 수정:
+    // 조회 전 임시 행(한 번도 조회 안 됨)의 최초 판정은 "상태 변경" 이 아니다 (검증 중 보정:
     // 신규 정상 근거가 화면에 "확인 불가 → 확인" 으로 표시되던 문제, 2026-09-30 19:55)
     if (upd.status && upd.status !== before && row.last_attempt_at != null) {
       upd.previous_status = before;

@@ -1,4 +1,4 @@
-// 승인 게이트 backend (INTEGRATOR 소유). 승인 전에는 원본을 절대 건드리지 않는다.
+// 승인 게이트 backend. 승인 전에는 원본을 절대 건드리지 않는다.
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';

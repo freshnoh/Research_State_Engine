@@ -1,4 +1,4 @@
-// 최소 HTTP 라우터 + JSON/정적 파일 헬퍼 (INTEGRATOR 소유)
+// 최소 HTTP 라우터 + JSON/정적 파일 헬퍼
 import fs from 'node:fs';
 import path from 'node:path';
 

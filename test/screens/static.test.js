@@ -13,7 +13,7 @@ const js = read('app.js');
 const css = read('app.css');
 const src = `${html}\n${js}`;
 
-// docs/CONTRACT.md §8.1 필수 testid (23종)
+// docs/CONTRACT.md §7.1 필수 testid (23종)
 const TESTIDS = [
   'nav-a', 'nav-b', 'nav-c', 'data-notice',
   'chat-input', 'chat-send', 'auto-record-line', 'answer-tried', 'answer-evidence', 'answer-next',

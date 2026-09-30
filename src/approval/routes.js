@@ -1,4 +1,4 @@
-// 승인 게이트 (INTEGRATOR 소유). 계약: docs/CONTRACT.md §5.3
+// 승인 게이트. 계약: docs/CONTRACT.md §5.3
 import { readJson } from '../core/http.js';
 import { approvalView, runView } from '../core/views.js';
 import { classify } from './policy.js';

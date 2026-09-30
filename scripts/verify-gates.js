@@ -1,4 +1,4 @@
-// 통합 검증 harness (INTEGRATOR 소유). 실제 서버 프로세스 + 실제 SQLite + 실제 Crossref 로 G1~G6 를 검사한다.
+// 통합 검증 harness. 실제 서버 프로세스 + 실제 SQLite + 실제 Crossref 로 G1~G6 를 검사한다.
 //   node scripts/verify-gates.js            (기본 PORT 4109, DATA_DIR var/verify — 운영 DB 를 건드리지 않음)
 // 결과: 콘솔 요약 + var/verify/report-*.json. 검사 대상 0건은 PASS 로 치지 않는다.
 import { spawn } from 'node:child_process';
@@ -115,7 +115,7 @@ async function g1g2() {
   check('G2', '중단 단계 전부 동일(저장값 계산)', ['reproducibility_validation', true],
     [q2.body?.approach?.common_stop_stage?.norm ?? null, q2.body?.approach?.common_stop_stage?.all_same ?? null]);
   // 하드코딩 아님: 다른 접근 키는 다른 DB 값이 나와야 한다
-  // (CONTRACT §7.2 사전에 있는 방법만 사용. seed 의 RSE-03 method_norm 'behavioral_assay' 는 사전 밖 값이라 비교 대상에서 제외)
+  // (CONTRACT §6.2 사전에 있는 방법만 사용. seed 의 RSE-03 method_norm 'behavioral_assay' 는 사전 밖 값이라 비교 대상에서 제외)
   const other = await api('POST', '/api/chat', { text: 'RSE-01을 세포 모델에서 qPCR로 다시 해도 될까요?' });
   const qpcrDb = q(`SELECT COUNT(*) AS n FROM research_attempt WHERE target_norm='RSE-01' AND method_norm='qpcr' AND environment_norm='cell'`)[0].n;
   check('G2', '다른 접근(RSE-01 qPCR 세포) 수 = DB 재조회 값(1)', [1, qpcrDb], [other.body?.answer?.tried?.count, 1]);

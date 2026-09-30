@@ -1,4 +1,4 @@
-// INTEGRATOR 통합 회귀: 신규 근거의 최초 판정은 "상태 변경" 으로 기록하지 않는다.
+// 회귀: 신규 근거의 최초 판정은 "상태 변경" 으로 기록하지 않는다.
 // 이미 조회 이력이 있는 근거의 실제 변화(확인 → 철회됨)는 그대로 기록한다.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

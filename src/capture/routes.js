@@ -1,4 +1,4 @@
-// CAPTURE 트랙 소유. 계약: docs/CONTRACT.md §5.1
+// 연구 대화 API. 계약: docs/CONTRACT.md §5.1
 //   POST /api/chat        — 발화 분류 → execution 은 같은 호출 안에서 즉시 저장 (저장/확인 단계 없음)
 //   GET  /api/approaches  — 실제 SQLite 를 다시 읽어 같은 접근 분석
 import { HttpError, readJson } from '../core/http.js';

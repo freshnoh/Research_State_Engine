@@ -1,4 +1,4 @@
-// 공용 DB 접근 (INTEGRATOR 소유). 모든 트랙은 openDb() 로 같은 방식으로 연다.
+// 공용 DB 접근. 모든 모듈은 openDb() 로 같은 방식으로 연다.
 import fs from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';

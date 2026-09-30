@@ -1,4 +1,4 @@
-// INTEGRATOR 소유: G5 승인 게이트 검사 (HTTP 경유)
+// G5 승인 게이트 검사 (HTTP 경유)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';

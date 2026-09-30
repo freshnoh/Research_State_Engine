@@ -1,4 +1,4 @@
-// 서지 비교 (EVIDENCE 소유). deterministic — fuzzy similarity / LLM 없음. CONTRACT §4.
+// 서지 비교. deterministic — fuzzy similarity / LLM 없음. CONTRACT §4.
 // 정규화 후 "동일 여부"만 본다. 형식 차이(대소문자·공백·문장부호·상태성 접두사)는 불일치가 아니다.
 
 // 상태성 제목 접두사: 비교용 정규화에서만 제거한다 (Crossref 원본 제목은 그대로 저장).

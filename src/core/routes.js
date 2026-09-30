@@ -1,4 +1,4 @@
-// 공용 읽기 API (INTEGRATOR 소유). 화면 A/B/C 가 공통으로 읽는다.
+// 공용 읽기 API. 화면 A/B/C 가 공통으로 읽는다.
 import { SCHEMA_VERSION } from '../db/index.js';
 import { DATA_NOTICE } from '../contract/enums.js';
 import { attemptView, evidenceView, judgmentView, approvalView, runView } from './views.js';

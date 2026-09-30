@@ -1,4 +1,4 @@
-// Crossref update relation 해석 (EVIDENCE 소유). deterministic — LLM 판정 없음. CONTRACT §4.
+// Crossref update relation 해석. deterministic — LLM 판정 없음. CONTRACT §4.
 //
 // Crossref work 의 두 필드를 구분한다.
 //   updated-by : "이 work 를 갱신하는 notice" 목록. 항목 DOI = notice DOI.  → 이 work 의 철회 여부 판정에 쓴다.
@@ -63,7 +63,7 @@ export function extractRelations(message) {
     }
   }
   const retraction = [...byKey.values()].map((r) => ({ ...r, sources: [...r.sources].sort(), source: [...r.sources].sort().join(', ') || null }));
-  // 여러 notice 가 있으면 가장 최근 것을 대표로 (나머지도 retraction 배열·raw 에 보존)
+  // 여러 notice 가 있으면 가장 최근 것을 표시값으로 (나머지도 retraction 배열·raw 에 보존)
   const primary = [...retraction].sort((a, b) => String(b.date ?? '').localeCompare(String(a.date ?? '')) || a.key.localeCompare(b.key))[0] ?? null;
 
   return {

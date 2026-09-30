@@ -1,4 +1,4 @@
-// 시연 seed 적재 (INTEGRATOR 소유). 빈 DB 에만 적재한다. 기존 데이터를 덮어쓰지 않는다.
+// 시연 seed 적재. 빈 DB 에만 적재한다. 기존 데이터를 덮어쓰지 않는다.
 import fs from 'node:fs';
 import path from 'node:path';
 import { ROOT } from '../config.js';

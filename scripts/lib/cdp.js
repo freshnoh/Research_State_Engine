@@ -1,4 +1,4 @@
-// 최소 CDP 드라이버 (INTEGRATOR 검증 도구, 제품 코드 아님). 외부 의존성 없이 내장 WebSocket 사용.
+// 최소 CDP 드라이버 (검증 도구, 제품 코드 아님). 외부 의존성 없이 내장 WebSocket 사용.
 // 브라우저: RSE_CHROME 환경변수 > (Windows) Chrome/Edge > ~/.cache/ms-playwright 의 chrome-headless-shell.
 // 이 PC 의 WSL 에는 chromium 공유 라이브러리가 없어 Windows node + Windows Chrome 으로 실행한다 (WSL 서버는 localhost 포워딩).
 import { spawn } from 'node:child_process';

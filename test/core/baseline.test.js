@@ -1,4 +1,4 @@
-// INTEGRATOR 소유: baseline 4값 검사기가 정상/오염 상태를 구분하는지
+// baseline 4값 검사기가 정상/오염 상태를 구분하는지
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';

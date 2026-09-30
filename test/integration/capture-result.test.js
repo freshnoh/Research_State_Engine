@@ -1,4 +1,4 @@
-// INTEGRATOR 통합 회귀: LLM 이 result 를 unknown/enum 밖으로 줘도 원문 흔적으로 결과를 정한다
+// 회귀: LLM 이 result 를 unknown/enum 밖으로 줘도 원문 흔적으로 결과를 정한다
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { sanitizeFields, rulesExtract } from '../../src/capture/extract.js';

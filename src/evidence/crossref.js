@@ -1,4 +1,4 @@
-// Crossref 조회 (EVIDENCE 소유). 외부 연구 데이터 소스는 Crossref 하나뿐.
+// Crossref 조회. 외부 연구 데이터 소스는 Crossref 하나뿐.
 // base URL 은 항상 config.crossrefBaseUrl — 이 파일 밖에는 호스트 문자열을 두지 않는다.
 
 export function normalizeDoi(input) {

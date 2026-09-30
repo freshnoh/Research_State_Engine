@@ -1,4 +1,4 @@
-// INTEGRATOR 소유: scaffold / schema / seed / health 검사
+// scaffold / schema / seed / health 검사
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';

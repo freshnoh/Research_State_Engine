@@ -1,65 +1,55 @@
-# CONTRACT — Research State Engine 공용 계약
+# CONTRACT — Research State Engine 기술 계약
 
-> 소유: INTEGRATOR(창1). 제품 사양 정본은 `docs/SPEC.md`. 이 문서는 SPEC 을 구현하기 위한 트랙 간 계약이다.
-> worker 는 이 문서·공용 schema·공용 interface 를 직접 수정하지 않는다. 변경이 필요하면 §9 절차를 따른다.
+> 제품 사양은 `docs/SPEC.md`. 이 문서는 그 사양을 구현한 schema · API · 판정 규칙 · fixture 형식을 정리한 기술 계약이다.
 
 ## 0. 기술 기준
 
 - 단일 Node.js 애플리케이션 (Node ≥ 22.13, 외부 npm 의존성 0)
   - HTTP: `node:http` / DB: `node:sqlite` (SQLite 단일 파일) / 테스트: `node:test` / 외부 조회: 내장 `fetch`
 - 실행: `npm start` · DB 초기화: `npm run db:init` · 시드: `npm run seed` · 테스트: `npm test`
-- 테스트 파일 규칙: `test/<track>/*.test.js`. 테스트는 네트워크 없이도 결정적으로 통과해야 한다
-  (Crossref 실제 호출 검증은 별도 스크립트/수동 검증으로 기록하고, 단위 테스트는 녹화 응답/주입 fetch 사용).
+- 테스트 파일 규칙: `test/<영역>/*.test.js`. 테스트는 네트워크 없이도 결정적으로 통과해야 한다
+  (Crossref 실제 호출 검증은 `scripts/verify-gates.js` 로 별도 수행하고, 단위 테스트는 녹화 응답/주입 fetch 사용).
 - 외부 연구 데이터 소스 = Crossref REST API (`https://api.crossref.org/works/{doi}`) 하나뿐.
 - LLM 은 실행 계층: 자연어 → 구조화 후보 추출, 설명 생성, 오케스트레이션만. 최종 판정은 §4 의 deterministic rule.
 
-## 1. 런타임 설정 · DB_PATH · port 규칙
+## 1. 런타임 설정
 
-설정 우선순위: 프로세스 환경변수 > 각 checkout 의 `.env.local`(gitignore 대상) > 기본값 (`src/config.js`).
+설정 우선순위: 프로세스 환경변수 > checkout 루트의 `.env.local`(gitignore 대상) > 기본값 (`src/config.js`).
 
 | 키 | 기본값 | 의미 |
 |---|---|---|
-| `PORT` | 4100 | dev 서버 포트 (127.0.0.1 바인드) |
+| `PORT` | 4100 | 서버 포트 (127.0.0.1 바인드) |
 | `DATA_DIR` | `var` | 런타임 데이터 루트 (gitignore 대상) |
 | `DB_PATH` | `$DATA_DIR/rse.db` | 제품 SQLite 파일 |
 | `APPROVAL_DIR` | `$DATA_DIR/approval` | G5 승인 게이트 원본 파일 위치 |
-| `CROSSREF_BASE_URL` | `https://api.crossref.org` | Crossref 엔드포인트. **EVIDENCE 는 반드시 `config.crossrefBaseUrl` 을 써야 한다** (통합 검증이 도달 불가 주소로 바꿔 조회 실패 경로를 실제로 검사함). 다른 데이터 소스로 바꾸는 용도 아님 |
+| `CROSSREF_BASE_URL` | `https://api.crossref.org` | Crossref 엔드포인트. 근거 모듈은 반드시 `config.crossrefBaseUrl` 을 쓴다 (통합 검증이 도달 불가 주소로 바꿔 조회 실패 경로를 실제로 검사함). 다른 데이터 소스로 바꾸는 용도 아님 |
 | `CROSSREF_MAILTO` | (빈 값) | Crossref polite pool 용 mailto (선택) |
 | `CROSSREF_TIMEOUT_MS` | 10000 | Crossref 조회 timeout |
 | `RSE_LLM` | `claude-cli` | 추출기 선택: `claude-cli` \| `rules` |
 
-checkout 별 고정 배정 (INTEGRATOR 가 LISTEN 실측 후 배정, 각 `.env.local` 에 절대경로로 기록):
-
-| checkout | 경로 | branch | PORT | DB_PATH |
-|---|---|---|---|---|
-| INTEGRATOR | `/home/user/projects/Research_State_Engine` | `main` | 4100 | `<root>/var/rse.db` |
-| CAPTURE | `/home/user/projects/.worktrees/research-state-engine/capture` | `track/capture` | 4101 | `<capture>/var/rse.db` |
-| EVIDENCE | `/home/user/projects/.worktrees/research-state-engine/evidence` | `track/evidence` | 4102 | `<evidence>/var/rse.db` |
-| SCREENS | `/home/user/projects/.worktrees/research-state-engine/screens` | `track/screens` | 4103 | `<screens>/var/rse.db` |
-
-- 다른 checkout 의 DB 파일·port 를 쓰지 않는다. 테스트는 임시 디렉터리의 DB 를 쓴다.
-- credential 은 환경변수 또는 gitignore 된 로컬 파일만. `.env*`, `*.db`, `var/`, `CLAUDE.md` 는 절대 stage 하지 않는다.
+- 여러 인스턴스를 동시에 띄울 때는 `DB_PATH`·`PORT` 를 서로 다르게 둔다. 테스트는 임시 디렉터리의 DB 를 쓴다.
+- credential 은 환경변수 또는 gitignore 된 로컬 파일만 쓴다. `.env*`, `*.db`, `var/` 는 저장소에 올리지 않는다.
 
 ## 2. SQLite schema (정본: `src/db/schema.sql`)
 
 공통 규칙: `*_raw` = 원문에서 뽑은 그대로, `*_norm` = 정규화 값. **NULL = 미상**(추측 금지). 시각은 ISO-8601 문자열.
 
-| 테이블 | 의미 | 쓰기 소유 |
+| 테이블 | 의미 | 쓰는 곳 |
 |---|---|---|
-| `research_attempt` | ① 연구 시도 (원문 + 대상/방법/환경/조건/결과/중단 단계, raw·norm 쌍) | CAPTURE (live), INTEGRATOR (seed) |
-| `evidence` | ② 근거 (입력 서지 / Crossref 서지 / 4상태 / 확인불가 사유 / 철회 relation 유형·방향·출처 / 마지막 정상확인·최신시도 구분) | EVIDENCE (live), INTEGRATOR (seed) |
-| `judgment` | ③ 판단 (질문 / 시각 / 제안 / 이후 행동 / 재검토 필요) | 생성: CAPTURE (live 질문), INTEGRATOR (seed). `needs_review`·`review_*` 갱신: EVIDENCE 만 |
-| `judgment_attempt_link` | 판단이 사용한 시도 | CAPTURE |
-| `evidence_judgment_link` | ④ 판단이 사용한 근거 (evidence_id 인덱스로 역조회) | 판단 생성 주체 (CAPTURE/INTEGRATOR seed) |
-| `approval_action` | ⑤ 승인 대기 작업 (hash_before/after, 상태) | INTEGRATOR |
-| `action_run` | 승인 불필요 작업 실행 기록 (G5 독립 분석) | INTEGRATOR |
-| `crossref_cache` | ⑥ Crossref raw 응답 cache (doi 소문자 키, http_status, fetched_at) | EVIDENCE |
-| `crossref_lookup_log` | 조회 로그 (`cache_hit` / `fresh`, ok, http_status, error) | EVIDENCE |
+| `research_attempt` | ① 연구 시도 (원문 + 대상/방법/환경/조건/결과/중단 단계, raw·norm 쌍) | `src/capture` (대화), seed |
+| `evidence` | ② 근거 (입력 서지 / Crossref 서지 / 4상태 / 확인불가 사유 / 철회 relation 유형·방향·출처 / 마지막 정상확인·최신시도 구분) | `src/evidence`, seed |
+| `judgment` | ③ 판단 (질문 / 시각 / 제안 / 이후 행동 / 재검토 필요) | 생성: `src/capture` (질문), seed. `needs_review`·`review_*` 갱신: `src/evidence` 만 |
+| `judgment_attempt_link` | 판단이 사용한 시도 | `src/capture` |
+| `evidence_judgment_link` | ④ 판단이 사용한 근거 (evidence_id 인덱스로 역조회) | 판단 생성 시 (`src/capture`, seed) |
+| `approval_action` | ⑤ 승인 대기 작업 (hash_before/after, 상태) | `src/approval` |
+| `action_run` | 승인 불필요 작업 실행 기록 (G5 독립 분석) | `src/approval` |
+| `crossref_cache` | ⑥ Crossref raw 응답 cache (doi 소문자 키, http_status, fetched_at) | `src/evidence` |
+| `crossref_lookup_log` | 조회 로그 (`cache_hit` / `fresh`, ok, http_status, error) | `src/evidence` |
 
 - 삭제 금지: evidence 는 확인 불가·서지 불일치여도 행을 지우지 않는다. 판단 근거 집합에서만 제외하고 `excluded_reason` 한 줄.
 - 과거 정상 확인(`last_success_at`)이 있는 evidence 의 최신 조회 실패는 `status` 를 바꾸지 않고
   `last_attempt_at`, `last_attempt_ok=0`, `last_error` 만 갱신한다.
-- 상태 변화 시 `previous_status`, `status_changed_at` 기록.
+- 상태 변화 시 `previous_status`, `status_changed_at` 기록 (조회 전 임시 행의 최초 판정은 상태 변화가 아님).
 
 ## 3. 공용 객체 / enum (정본: `src/contract/enums.js`, `src/core/views.js`)
 
@@ -123,27 +113,28 @@ enum 코드 (DB·API 는 코드, 화면은 라벨):
 ```
 
 ### 3.5 오류 / 미확정 표현
-- HTTP 오류: `{"error": {"code": "<UPPER_SNAKE>", "message": "…"}}` + 4xx/5xx. 미구현 = 501 `NOT_IMPLEMENTED`.
+- HTTP 오류: `{"error": {"code": "<UPPER_SNAKE>", "message": "…"}}` + 4xx/5xx.
 - 미상 값: JSON `null`, 화면 "미상". 추측값으로 채우지 않는다.
 - 확인 불가를 "논문 없음 / 가짜 논문 / 존재하지 않음" 으로 표시하지 않는다. 표준 문구:
   "DOI 등록을 확인하지 못했습니다. 제목·저자 기준으로 추가 확인이 필요합니다."
 
 ## 4. deterministic 정책 경계 (LLM 최종 판정 금지)
 
-| 판정 | 소유 | 규칙 |
+| 판정 | 모듈 | 규칙 |
 |---|---|---|
-| 실행 흔적 여부 (저장 자격) | CAPTURE | 과거형 실행/결과 흔적이 있을 때만 `execution`. 계획("~하려 합니다"), 질문("~해도 될까요?"), 가설은 저장 0. 불명확하면 저장하지 않음 |
-| 같은 접근 | CAPTURE | 키 = target_norm + method_norm + environment_norm. 조건은 변주, 결과는 키 제외. 하나라도 미상 → `undetermined` |
-| 서지 비교 | EVIDENCE | 표기·대소문자·공백·구두점·`RETRACTED ARTICLE:` 류 접두 정규화 후 비교. 형식 차이는 불일치 아님 |
-| 철회 판정 | EVIDENCE | Crossref `updated-by`(이 work 를 갱신하는 notice) 중 `type` 이 retraction 계열인 항목만 철회. 유형·방향·출처 저장. expression_of_concern·correction 은 철회 아님. 철회 > 서지 불일치 (철회가 가려지지 않음) |
-| 조회 실패 덮어쓰기 | EVIDENCE | 과거 정상 확인이 있으면 status 유지 + 실패 기록. 과거·cache 모두 없고 최초 조회 실패일 때만 `unverifiable/lookup_failed` |
-| 승인 필요 여부 | INTEGRATOR | §5.3 규칙표. 모르는 유형은 승인 대기 |
+| 실행 흔적 여부 (저장 자격) | `src/capture/classify.js` | 과거형 실행/결과 흔적이 있을 때만 `execution`. 계획("~하려 합니다"), 질문("~해도 될까요?"), 가설은 저장 0. 불명확하면 저장하지 않음 |
+| 같은 접근 | `src/capture/approach.js` | 키 = target_norm + method_norm + environment_norm. 조건은 변주, 결과는 키 제외. 하나라도 미상 → `undetermined` |
+| 추출값 검증 | `src/capture/extract.js` | LLM 값은 원문에 글자 그대로 있을 때만 사용(환각은 null). 대상에 붙은 환경 표현·LLM 이 비운 환경은 원문 규칙으로 보정. LLM 이 결과를 못 주면 원문 키워드로 결정 |
+| 서지 비교 | `src/evidence/compare.js` | 표기·대소문자·공백·구두점·`RETRACTED ARTICLE:` 류 접두 정규화 후 비교. 형식 차이는 불일치 아님 |
+| 철회 판정 | `src/evidence/relations.js` | Crossref `updated-by`(이 work 를 갱신하는 notice) 중 `type` 이 retraction 계열인 항목만 철회. 유형·방향·출처 저장. expression_of_concern·correction 은 철회 아님. 철회 > 서지 불일치 (철회가 가려지지 않음) |
+| 조회 실패 덮어쓰기 | `src/evidence/service.js` | 과거 정상 확인이 있으면 status 유지 + 실패 기록. 과거·cache 모두 없고 최초 조회 실패일 때만 `unverifiable/lookup_failed` |
+| 승인 필요 여부 | `src/approval/policy.js` | §5.3 규칙표. 모르는 유형은 승인 대기 |
 
-LLM 이 추출한 값은 CAPTURE 의 작은 별칭 사전(§7.2)으로 정규화된다. 사전에 없는 값은 raw 만 저장, norm 은 원문 표기 통일값 또는 NULL.
+LLM 이 추출한 값은 작은 별칭 사전(§7.2, `src/capture/dict.js`)으로 정규화된다. 사전에 없는 값은 raw 를 저장하고, norm 은 원문 표기 통일값 또는 NULL.
 
 ## 5. API 계약 (화면 A/B/C 가 호출)
 
-### 5.0 공용 읽기 (INTEGRATOR, `src/core/routes.js`) — 구현됨
+### 5.0 공용 읽기 (`src/core/routes.js`)
 - `GET /api/health` → `{ok, schema_version, db_path, port, counts:{…}, data_notice}`
 - `GET /api/attempts` → `{attempts: Attempt[]}` (id 내림차순)
 - `GET /api/evidence` → `{evidence: Evidence[]}`
@@ -151,7 +142,7 @@ LLM 이 추출한 값은 CAPTURE 의 작은 별칭 사전(§7.2)으로 정규화
 - `GET /api/approvals` → `{approvals: Approval[]}`
 - `GET /api/runs` → `{runs: Run[]}`
 
-### 5.1 CAPTURE (`src/capture/routes.js`)
+### 5.1 연구 대화 (`src/capture/routes.js`)
 `POST /api/chat` body `{"text": "…"}` → 200
 ```json
 { "kind": "execution|plan|question|hypothesis|other",
@@ -165,7 +156,8 @@ LLM 이 추출한 값은 CAPTURE 의 작은 별칭 사전(§7.2)으로 정규화
     "next":     {"text": "저장된 이력과 검증된 근거만으로는 다음 경로를 제시할 수 없습니다", "grounded": false}
   },
   "judgment_id": 2,
-  "extractor": "llm:claude-cli|rules" }
+  "extractor": "llm:claude-cli|rules",
+  "extractor_fallback": "(claude-cli 실패로 rules 를 썼을 때만) 사유" }
 ```
 - 저장 폼/확인 버튼 없음: `execution` 이면 이 호출 안에서 즉시 저장.
 - `plan`/`question`/`hypothesis`/`other` 이면 `saved=false`, `attempt=null`, research_attempt 증가 0.
@@ -182,7 +174,7 @@ LLM 이 추출한 값은 CAPTURE 의 작은 별칭 사전(§7.2)으로 정규화
   "text": "이 접근은 3번 시도됐고 모두 재현성 검증 단계에서 멈췄습니다" }
 ```
 
-### 5.2 EVIDENCE (`src/evidence/routes.js`)
+### 5.2 근거 (`src/evidence/routes.js`)
 - `POST /api/evidence` body `{"doi", "title"?, "authors"?, "year"?, "is_demo_corrupted"?}` → 200
   `{evidence: Evidence, lookup: {mode: "cache_hit|fresh", ok, http_status, fetched_at, error}}`
   - 조회 결과를 cache 하고, 표시할 때 조회 시각을 함께 준다.
@@ -200,13 +192,13 @@ LLM 이 추출한 값은 CAPTURE 의 작은 별칭 사전(§7.2)으로 정규화
   - 조회 실패 시 §4 조회 실패 규칙.
 - `GET /api/evidence/:id/judgments` → `{evidence_id, judgments: Judgment[]}` (역조회)
 
-EVIDENCE 가 `src/evidence/index.js` 에서 export 할 함수 (INTEGRATOR baseline 스크립트가 호출):
+`src/evidence/index.js` export (baseline 스크립트가 호출):
 - `async prewarmBaselineCache(db, config, {exclude: string[]})` →
   `fixtures/evidence/samples.json` 의 `normal`, `corrupted`, `unverifiable` 표본을 **일반 조회 경로(POST /api/evidence 와 동일 로직)** 로
   evidence 행 + crossref_cache 에 등록하고 `{registered: [{key, evidence_id, status}], skipped: [doi]}` 반환.
   `exclude` 의 DOI(철회 논문 `10.1038/nature04533`)와 `live_unseeded` 는 절대 조회·cache 하지 않는다.
 
-### 5.3 INTEGRATOR — 승인 게이트 (`src/approval/**`)
+### 5.3 승인 게이트 (`src/approval/**`)
 규칙표 (`src/approval/policy.js`):
 
 | action_type | 승인 | rule_id |
@@ -225,23 +217,9 @@ EVIDENCE 가 `src/evidence/index.js` 에서 export 할 함수 (INTEGRATOR baseli
 - `POST /api/approvals/:id/approve` → 200 `{approval}` : 현재 hash == hash_before 확인 후 덮어쓰기, hash_after 기록
 - `POST /api/approvals/:id/reject` → 200 `{approval}` : 원본 불변
 
-## 6. 파일 소유 경계 (쓰기 가능 glob, 비중첩)
+## 6. fixture / seed 형식
 
-| 소유 | 쓰기 가능 경로 |
-|---|---|
-| INTEGRATOR | `package.json`, `.gitignore`, `README.md`, `src/app.js`, `src/server.js`, `src/config.js`, `src/db/**`, `src/core/**`, `src/contract/**`, `src/approval/**`, `scripts/**`, `fixtures/seed/**`, `fixtures/approval/**`, `fixtures/evidence/samples.json`, `test/core/**`, `test/integration/**`, `docs/CONTRACT.md`, `docs/STATUS.md`, `docs/PARKING.md`, `docs/presentation/**` |
-| CAPTURE | `src/capture/**`, `test/capture/**`, `fixtures/capture/**`, `docs/handoff/CAPTURE.md` |
-| EVIDENCE | `src/evidence/**`, `test/evidence/**`, `fixtures/evidence/recorded/**`, `docs/handoff/EVIDENCE.md` |
-| SCREENS | `public/**`, `test/screens/**`, `docs/handoff/SCREENS.md` |
-| 모두 읽기 전용 | `docs/SPEC.md`, `CLAUDE.md`(로컬 전용, 미추적) |
-
-- 각 트랙은 자기 worktree 에서 자기 경로만 수정한다. 자기 worktree 가 아니면 제품 코드를 수정하지 않는다.
-- 다른 트랙 모듈 호출은 그 트랙이 `src/<track>/index.js` 에서 export 한 함수 또는 §5 HTTP API 로만.
-- worker 는 `docs/STATUS.md` 를 수정하지 않는다. main merge 는 INTEGRATOR 만.
-
-## 7. fixture / seed 형식
-
-### 7.1 seed (`fixtures/seed/seed.json`, INTEGRATOR)
+### 6.1 seed (`fixtures/seed/seed.json`)
 `attempts[]`(research_attempt 컬럼 + `key`), `evidence[]`(evidence 컬럼 + `key`), `judgments[]`(+ `evidence_keys`, `attempt_keys`).
 `src/core/seed.js#loadSeed(db)` 는 빈 DB 에만 적재한다.
 - 데모1: RSE-01 / western_blot / cell 같은 접근 2건 (조건 상이, 둘 다 `reproducibility_validation` 에서 `stopped`) + 인접·미확정·기타 합성 이력 5건 (총 7)
@@ -250,7 +228,7 @@ EVIDENCE 가 `src/evidence/index.js` 에서 export 할 함수 (INTEGRATOR baseli
 - 철회 논문의 현재 Crossref 응답은 seed/baseline cache 에 넣지 않는다.
 - 데모1 과 데모2 사이에 어떤 link 도 만들지 않는다.
 
-### 7.2 데모 정규화 사전 (CAPTURE 가 구현해야 할 최소 매핑)
+### 6.2 데모 정규화 사전 (`src/capture/dict.js` 최소 매핑)
 | 필드 | raw 예 | norm |
 |---|---|---|
 | target | RSE-01, rse-01, RSE01 | `RSE-01` |
@@ -263,35 +241,35 @@ EVIDENCE 가 `src/evidence/index.js` 에서 export 할 함수 (INTEGRATOR baseli
 | stop_stage | 재현성 검증, 재현성 확인 | `reproducibility_validation` |
 | stop_stage | 행동검증 | `behavioral_validation` |
 
-주의: seed 의 `RSE-03` 시도 method_norm `behavioral_assay` 는 위 사전 밖 값이다 (CAPTURE 는 "행동검증" 을 method 로 받으면 표기 통일값 `행동검증` 으로 저장).
+주의: seed 의 `RSE-03` 시도 method_norm `behavioral_assay` 는 위 사전 밖 값이다 ("행동검증" 을 method 로 받으면 표기 통일값 `행동검증` 으로 저장).
 따라서 RSE-03 은 라이브 발화와 같은 접근으로 묶이지 않는다. 시연·검증은 사전에 있는 접근(RSE-01 western_blot/qpcr)만 쓴다.
 
 라이브 발화 기대값: "오늘 후보 단백질 RSE-01을 세포 모델에서 Western blot으로 측정했고, 재현성 검증 단계에서 중단했습니다."
 → target `RSE-01`, method `western_blot`, environment `cell`, result `stopped`, stop_stage `reproducibility_validation`, condition NULL.
 
-### 7.3 G3 표본 (`fixtures/evidence/samples.json`, INTEGRATOR)
+### 6.3 G3 표본 (`fixtures/evidence/samples.json`)
 normal / corrupted(시연용 손상) / unverifiable(404, 형식 정상) / retracted(Aβ*56) / live_unseeded(발표 현장 입력용).
 기대 상태는 2026-09-30 실제 Crossref 응답으로 사전 확인. 판정은 항상 현재 응답으로 한다.
 
-### 7.4 G5 원본 (`fixtures/approval/original_measurements.csv`, INTEGRATOR)
+### 6.4 G5 원본 (`fixtures/approval/original_measurements.csv`)
 baseline 복원 시 `$APPROVAL_DIR/original_measurements.csv` 로 복사. 기준 hash 는 이 fixture 의 sha256.
 
-### 7.5 baseline 운영 (INTEGRATOR, `scripts/baseline.js`) — 제품 UI 아님
-- `npm run baseline:create` → `$DATA_DIR/baseline/rse.baseline.db` (seed + EVIDENCE prewarm, 철회 논문 cache 없음)
+### 6.5 시연 baseline (`scripts/baseline.js`) — 제품 UI 가 아닌 시연 준비 절차
+- `npm run baseline:create` → `$DATA_DIR/baseline/rse.baseline.db` (seed + 근거 사전 조회, 철회 논문 cache 없음)
 - `npm run baseline:restore` → 서버가 PORT 에서 실행 중이면 거부. DB_PATH·원본 파일 복원 후 4값 검사
 - `npm run baseline:check` → 같은 접근=2 / 과거 판단 근거=verified / 재검토 표시=0 / 원본 hash=fixture hash (+ 철회 논문 cache 0)
   4/4 가 아니면 시연 시작 금지 (exit 1)
 
-## 8. 화면 계약 (SCREENS)
+## 7. 화면 계약 (`public/`)
 - 화면 A 연구 대화: `POST /api/chat` → 세 덩어리(이미 해본 것 / 근거 상태 / 다음 후보) + 저장 시 "자동 기록됨 — …" 한 줄. 저장 폼/확인 버튼 없음.
 - 화면 B 승인 대기열: `GET /api/approvals`, `GET /api/approval/target`, `POST /api/actions`, approve/reject, `GET /api/runs`.
   카드 = 작업 / 승인 필요 이유 / 영향 대상 / hash 앞 8자리. 승인 전·후 hash 나란히.
 - 화면 C 연구 상태: `GET /api/attempts`(원문+구조화), `GET /api/judgments`, `GET /api/evidence`, 상단 [지금 재검사] = `POST /api/recheck`.
   재검토 필요 판단·영향 근거에 눈에 띄는 표시(색 + 텍스트).
-- 모든 화면에 `DATA_NOTICE` 표시. 데모 과거 상태에는 `demo_label` 표시. 제품 reset 버튼 금지.
+- 모든 화면에 `DATA_NOTICE` 표시. 데모 과거 상태에는 `demo_label` 표시. 제품 reset 버튼 없음.
 
-### 8.1 검증용 `data-testid` (필수 — INTEGRATOR 가 실제 브라우저로 사용자 흐름을 검증한다)
-단일 페이지 `public/index.html`. 화면 전환이 있으면 `nav-a` / `nav-b` / `nav-c` 클릭으로 전환.
+### 7.1 검증용 `data-testid` (`scripts/verify-ui.js` 가 실제 브라우저로 사용자 흐름을 검증할 때 사용)
+단일 페이지 `public/index.html`. 화면 전환은 `nav-a` / `nav-b` / `nav-c`.
 
 | 화면 | testid | 요소 / 속성 |
 |---|---|---|
@@ -310,19 +288,4 @@ baseline 복원 시 `$APPROVAL_DIR/original_measurements.csv` 로 복사. 기준
 | C | `evidence-row` | 근거 행. 속성 `data-evidence-id`, `data-status`(enum 코드) |
 | C | `judgment-row` | 판단 행. 속성 `data-judgment-id`, `data-needs-review`("1"/"0") |
 
-화면은 API 응답이 바뀐 뒤 새로고침 없이 갱신되어야 한다 (버튼 처리 후 재조회).
-
-## 9. 공용 파일 변경 절차
-worker 는 공용 파일을 직접 수정하지 않고 자기 handoff 에 기록한다:
-```
-CONTRACT_CHANGE_REQUEST:
-- 필요한 변경:
-- 이유:
-- 현재 막히는 경로:
-- 최소 변경안:
-```
-INTEGRATOR 가 검토 → main 에 반영 → worker 는 `git fetch && git merge origin/main` 으로 받는다.
-
-## 10. worker handoff 형식 (`docs/handoff/<TRACK>.md`)
-트랙 / branch / 최신 commit SHA / push 여부 / 검증 통과 N/전체 M (기대값·실제값) / 핵심 실제 값 / 실패경로 /
-남은 위험 / CONTRACT_CHANGE_REQUEST / 【청소】 워크트리 clean O/X · 브랜치 착지/미착지 · handoff 최신 O/X
+화면은 API 응답이 바뀐 뒤 새로고침 없이 갱신된다 (버튼 처리 후 재조회).

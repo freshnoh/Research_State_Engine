@@ -1,4 +1,4 @@
-// CAPTURE 소유. 발화 종류 판정 — deterministic (CONTRACT §4: 실행 흔적 여부는 LLM 이 정하지 않는다).
+// 발화 종류 판정 — deterministic (CONTRACT §4: 실행 흔적 여부는 LLM 이 정하지 않는다).
 // 저장 자격: execution 만. 단순 키워드가 아니라 "과거형 실행/결과 흔적"이 있어야 한다.
 // 불명확하거나 실행+계획/가설이 섞이면 other (저장하지 않음).
 

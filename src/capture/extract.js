@@ -1,4 +1,4 @@
-// CAPTURE 소유. 자연어 → 구조화 후보 추출 (raw 값만). 정규화·같은 접근 판정은 여기서 하지 않는다.
+// 자연어 → 구조화 후보 추출 (raw 값만). 정규화·같은 접근 판정은 여기서 하지 않는다.
 //   extractor 계약: async (text) => { fields: {target, method, environment, condition, result, stop_stage}, extractor }
 //   fields 의 문자열은 모두 "원문에 실제로 나온 표현"이어야 하며, 없으면 null (추측 금지).
 import { spawn } from 'node:child_process';
@@ -50,10 +50,10 @@ export function rulesExtract(text) {
 export function sanitizeFields(text, f) {
   const src = compact(text);
   const grounded = (v) => (typeof v === 'string' && v.trim() && src.includes(compact(v)) ? v.trim() : null);
-  // LLM 이 결과를 못 뽑았거나(unknown) enum 밖 값을 주면 원문 키워드 규칙으로 결정한다 (INTEGRATOR 통합 수정:
+  // LLM 이 결과를 못 뽑았거나(unknown) enum 밖 값을 주면 원문 키워드 규칙으로 결정한다 (검증 중 보정:
   // 라이브 발화 "…중단했습니다" 가 간헐적으로 unknown 으로 저장된 관측 2026-09-30 19:50)
   const result = RESULTS.includes(f?.result) && f.result !== 'unknown' ? f.result : resultOf(String(text));
-  // 원문 규칙 보정 (INTEGRATOR 통합 수정, 2026-09-30 22:45 관측: claude-sonnet-5-5 가 "RSE-01 세포에서…" 를
+  // 원문 규칙 보정 (검증 중 보정, 2026-09-30 22:45 관측: claude-sonnet-5-5 가 "RSE-01 세포에서…" 를
   // target "RSE-01 세포" · environment null 로 반복 추출 → 같은 접근 미확정). 원문에 실제 있는 문자열만 쓴다 (추측 아님).
   const r = rulesExtract(String(text)).fields;
   let target = grounded(f?.target);

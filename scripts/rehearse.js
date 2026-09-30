@@ -1,4 +1,4 @@
-// 발표 리허설 (INTEGRATOR 운영 도구, 제품 코드 아님). Windows 에서 실행:
+// 발표 리허설 (검증 도구, 제품 코드 아님). Windows 에서 실행:
 //   node \\wsl.localhost\Ubuntu\home\user\projects\Research_State_Engine\scripts\rehearse.js [회차수=3]
 // 매 회차: 서버 정지 → baseline:restore(4/4 확인) → 실제 발표 서버(PORT 4100, 운영 DB) 기동 →
 //          실제 브라우저로 발표 순서 실행 → 핵심 DB/API/화면 값 확인 → 서버 정지. 마지막에 baseline 재복원.

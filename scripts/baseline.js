@@ -1,4 +1,4 @@
-// 시연 baseline 운영 스크립트 (INTEGRATOR 소유). 제품 기능이 아니라 운영 절차다 (SPEC §11).
+// 시연 baseline 스크립트. 제품 기능이 아니라 시연 준비 절차다 (SPEC §11).
 //   node scripts/baseline.js create   — seed 로 baseline 사본 생성 (var/baseline/)
 //   node scripts/baseline.js restore  — 서버 정지 상태에서 DB_PATH·원본 파일을 baseline 으로 복원 후 check
 //   node scripts/baseline.js check    — 현재 DB_PATH·원본 파일이 시연 시작 조건 4/4 인지 검사

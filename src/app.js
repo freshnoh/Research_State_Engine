@@ -1,4 +1,4 @@
-// 단일 애플리케이션 조립 (INTEGRATOR 소유). 트랙별 라우트 모듈은 register(router, ctx) 만 export 한다.
+// 단일 애플리케이션 조립 . 기능별 라우트 모듈은 register(router, ctx) 만 export 한다.
 import http from 'node:http';
 import path from 'node:path';
 import { ROOT, loadConfig } from './config.js';

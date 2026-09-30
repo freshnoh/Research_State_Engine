@@ -1,4 +1,4 @@
-// EVIDENCE 트랙 소유. 계약: docs/CONTRACT.md §5.2
+// 근거 API. 계약: docs/CONTRACT.md §5.2
 import { HttpError, readJson } from '../core/http.js';
 import { createEvidenceService, EvidenceError } from './service.js';
 

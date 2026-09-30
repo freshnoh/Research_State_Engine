@@ -1,4 +1,4 @@
-// CAPTURE 소유: 발화 분류 / 구조화 / G1 자동 축적 / G2 재사용 — 외부 LLM 없이 실제 SQLite 값으로 검사
+// 발화 분류 / 구조화 / G1 자동 축적 / G2 재사용 — 외부 LLM 없이 실제 SQLite 값으로 검사
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -48,7 +48,7 @@ test('classify: 종류별 발화가 기대 종류로 분류된다', () => {
   assert.equal(pass, cases.length);
 });
 
-test('dict: CONTRACT §7.2 최소 사전 정규화', () => {
+test('dict: CONTRACT §6.2 최소 사전 정규화', () => {
   for (const r of ['RSE-01', 'rse-01', 'RSE01']) assert.equal(normTarget(r), 'RSE-01');
   for (const r of ['Western blot', '웨스턴 블롯', 'WB']) assert.equal(normMethod(r), 'western_blot');
   for (const r of ['qPCR', '정량 PCR']) assert.equal(normMethod(r), 'qpcr');

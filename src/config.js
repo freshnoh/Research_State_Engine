@@ -1,5 +1,5 @@
 // 런타임 설정. 우선순위: 프로세스 환경변수 > .env.local (gitignore 대상) > 기본값.
-// 각 worktree는 자기 .env.local 에 DB_PATH / PORT / DATA_DIR 를 따로 둔다.
+// 여러 인스턴스를 띄울 때는 각자의 .env.local 에 DB_PATH / PORT / DATA_DIR 를 따로 둔다.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

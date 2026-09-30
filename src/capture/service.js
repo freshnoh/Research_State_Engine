@@ -1,4 +1,4 @@
-// CAPTURE 소유. POST /api/chat 처리: 발화 분류 → (execution) 즉시 저장 / (question) 저장 이력으로 답 + 판단 저장.
+// POST /api/chat 처리: 발화 분류 → (execution) 즉시 저장 / (question) 저장 이력으로 답 + 판단 저장.
 // 문구는 전부 저장/조회된 실제 값에서 만든다. 데모용 문자열 하드코딩 없음.
 import { nowIso, tx } from '../db/index.js';
 import { NO_PATH_MESSAGE } from '../contract/enums.js';

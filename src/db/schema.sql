@@ -1,4 +1,4 @@
--- Research State Engine — 공용 SQLite schema (INTEGRATOR 소유, docs/CONTRACT.md §2)
+-- Research State Engine — 공용 SQLite schema (docs/CONTRACT.md §2)
 -- 규칙: *_raw = 원문에서 뽑은 값 그대로, *_norm = 정규화 값. NULL = 미상(추측 금지).
 -- 시각은 ISO-8601 문자열(타임존 포함).
 

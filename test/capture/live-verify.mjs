@@ -1,4 +1,4 @@
-// CAPTURE 소유: 실제 실행 중인 서버(HTTP) + 자기 SQLite(DB_PATH) 를 직접 읽는 라이브 검증 (npm test 대상 아님)
+// 실제 실행 중인 서버(HTTP) + 자기 SQLite(DB_PATH) 를 직접 읽는 라이브 검증 (npm test 대상 아님)
 //   node test/capture/live-verify.mjs live      — 서버 실행 중. baseline 2 → 라이브 문장 → 3, plan/question/hypothesis/other 0
 //   node test/capture/live-verify.mjs restart   — 서버 재시작 후. 저장값·재계산 유지 확인
 import { DatabaseSync } from 'node:sqlite';

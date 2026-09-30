@@ -1,7 +1,7 @@
-// 화면 사용자 흐름 검증 (INTEGRATOR 검증 도구). 실제 브라우저로 화면 A/B/C 를 조작하고 화면 값 + API 값을 대조한다.
+// 화면 사용자 흐름 검증 (검증 도구). 실제 브라우저로 화면 A/B/C 를 조작하고 화면 값 + API 값을 대조한다.
 // Windows 에서 실행:  node \\wsl.localhost\Ubuntu\home\user\projects\Research_State_Engine\scripts\verify-ui.js
 //  - WSL 에서 verify-ui 전용 DB 를 baseline 에서 준비하고 서버(PORT 4107)를 띄운다 (재시작 포함, G6)
-//  - 계약: docs/CONTRACT.md §8.1 data-testid
+//  - 계약: docs/CONTRACT.md §7.1 data-testid
 import { spawn, execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';

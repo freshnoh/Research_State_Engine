@@ -1,4 +1,4 @@
-// 공용 읽기 뷰 (INTEGRATOR 소유). DB row → CONTRACT 객체. 쓰기는 하지 않는다.
+// 공용 읽기 뷰. DB row → CONTRACT 객체. 쓰기는 하지 않는다.
 import { parseJson } from '../db/index.js';
 import {
   ENVIRONMENT, RESULT, EVIDENCE_STATUS, UNVERIFIABLE_REASON, APPROVAL_STATUS, DEMO_PAST_STATE_LABEL,

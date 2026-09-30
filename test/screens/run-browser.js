@@ -1,9 +1,9 @@
-// SCREENS 브라우저 검증 러너 (실제 Chrome, 1920×1080). 제품 코드 아님.
+// 화면 브라우저 검증 러너 (실제 Chrome, 1920×1080). 제품 코드 아님.
 //   node test/screens/run-browser.js fixture   → tier=fixture: 계약 형식 fixture 서버 대상 UI 계약 검증 (실제 API 증거 아님)
-//   node test/screens/run-browser.js live      → tier=live: 이 worktree 의 실제 서버(WSL, PORT 4103)를 대상으로 한 실제 API 검증
+//   node test/screens/run-browser.js live      → tier=live: 이 checkout 의 실제 서버(WSL, PORT 4103)를 대상으로 한 실제 API 검증
 //   node test/screens/run-browser.js           → 둘 다
 // Windows node 로 실행 (WSL 에는 chromium 라이브러리 없음, scripts/lib/cdp.js 재사용).
-//   node \\wsl.localhost\Ubuntu\home\user\projects\.worktrees\research-state-engine\screens\test\screens\run-browser.js
+//   node \\wsl.localhost\Ubuntu\home\user\projects\Research_State_Engine\test\screens\run-browser.js
 import { spawn, execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -14,7 +14,7 @@ import { createMock } from './lib/mock-server.js';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..');
 const OUT = path.join(ROOT, 'var', 'screens-verify');
-const WSL_ROOT = '/home/user/projects/.worktrees/research-state-engine/screens';
+const WSL_ROOT = '/home/user/projects/Research_State_Engine';
 const LIVE_PORT = 4103;
 const W = 1920; const H = 1080;
 
@@ -362,7 +362,7 @@ async function runFixture() {
 }
 
 /* =====================================================================
- * LIVE 검증 (이 worktree 의 실제 서버 + 실제 DB)
+ * LIVE 검증 (이 checkout 의 실제 서버 + 실제 DB)
  * ===================================================================== */
 const wsl = (cmd) => execFileSync('wsl.exe', ['-d', 'Ubuntu', '--', 'bash', '-c', cmd], { encoding: 'utf8' });
 async function runLive() {
