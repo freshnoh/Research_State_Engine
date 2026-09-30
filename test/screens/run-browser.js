@@ -156,7 +156,7 @@ async function runFixture() {
     const tried1 = await h.text('answer-tried');
     check('A', '질문 답: ① 이미 해본 것 — fixture 응답값(2번, 재현성 검증) 렌더', [true, true, '2건'], [tried1.includes('2번'), tried1.includes('재현성 검증'), await h.text('tried-count').then((t) => t.replace(/\s+/g, '').replace('같은접근', ''))]);
     const ev1 = await h.text('answer-evidence'); const nx1 = await h.text('answer-next');
-    check('A', '질문 답: ② 연결된 논문 근거 없음 + ③ 다음 경로 제안 안 함 ("근거 부족" 표현 0)', [true, true, false], [ev1.includes('연결된 논문 근거 없음'), nx1.includes('검증된 논문 근거가 없어 다음 경로는 제안하지 않습니다'), (ev1 + nx1).includes('근거 부족')]);
+    check('A', '질문 답: ② 연결된 논문 근거 없음 + ③ 다음 후보 제시 안 함 ("근거 부족" 표현 0)', [true, true, false], [ev1.includes('연결된 논문 근거 없음'), nx1.includes('연결된 논문 근거가 없어 다음 후보를 제시하지 않습니다'), (ev1 + nx1).includes('근거 부족')]);
     check('A', '질문 발화: 시도 증가 0 (서버) · 자동 기록 줄 불변', [n0, false], [mock.state.attempts.length, (await h.text('auto-record-line')).includes('자동 기록됨')]);
 
     // 실행 발화 2→3

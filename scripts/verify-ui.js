@@ -135,7 +135,7 @@ async function main() {
     const qApi = (await api('/api/judgments')).judgments[0];
     // 다음 후보: 저장된 판단에 제안이 없으면(검증 논문 근거 0) 화면은 '제안하지 않습니다', 있으면 그 제안 문구
     check('G2', '다음 후보 = API 판단 제안 유무와 일치', true,
-      qApi?.proposal == null ? nextText.includes('검증된 논문 근거가 없어 다음 경로는 제안하지 않습니다') : nextText.includes(qApi.proposal), undefined);
+      qApi?.proposal == null ? nextText.includes('연결된 논문 근거가 없어 다음 후보를 제시하지 않습니다') : nextText.includes(qApi.proposal), undefined);
     check('G2', '근거 영역: 연결된 논문 근거 없음 안내 · "근거 부족" 표현 0', [true, false],
       [evText.includes('연결된 논문 근거 없음') || evText.includes('검증된 근거'), (evText + nextText).includes('근거 부족')]);
     await nav('c');

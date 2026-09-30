@@ -303,7 +303,7 @@ baseline 복원 시 `$APPROVAL_DIR/original_measurements.csv` 로 복사. 기준
 | C | `tl-pair` | 판단↔근거 실제 링크 1쌍. 속성 `data-judgment-id`, `data-evidence-id` |
 | C | `tl-now-status` | 현재 확인 상태. 속성 `data-status` = `pending`(판단 시점 이후 조회 없음) 또는 근거 status |
 | C | `tl-retraction`, `tl-found-card` | 철회 사건(날짜 = `retraction.date`) / 철회 근거의 과거 사용 판단(속성 `data-judgment-id`, 재검토 필요일 때만) |
-| C | `recheck-headline` | 확인 결과 한 줄 요약 (논문 N건 확인 · 바뀐 논문 N건 · 다시 확인할 과거 판단 N건) |
+| C | `recheck-headline` | 확인 결과 한 줄 요약 (논문 N건 확인 · 바뀐 논문 N건 · 재검토 필요 과거 판단 N건) |
 | C | `attempt-row` | 시도 행. 속성 `data-attempt-id`. 안에 `attempt-raw`(원문) |
 | C | `evidence-row` | 근거 행. 속성 `data-evidence-id`, `data-status`(enum 코드) |
 | C | `judgment-row` | 판단 행. 속성 `data-judgment-id`, `data-needs-review`("1"/"0") |
