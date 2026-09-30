@@ -42,6 +42,12 @@
 root `var/rse.db` 복원 후 **4/4** — 같은 접근 2/2 · 과거 판단 근거 verified/verified · 재검토 0/0 · 원본 hash 19b0f12a73c59354/19b0f12a73c59354 · 철회 논문 cache 0.
 리허설마다: 서버 정지 → `npm run baseline:restore` → 4/4 확인 후 `npm start`.
 
+## 정리 3종 (20:10)
+- 워크트리: 3개(capture/evidence/screens) 모두 main 착지·clean·미push 0·handoff = main 확인 후 제거, `git worktree prune`. 잔여 = main 1개. 검증용 임시 worktree(/tmp/rse-v/*) 3개도 제거
+- 브랜치/PR: track/capture·evidence·screens local+origin 삭제 (모두 origin/main 조상 확인). 잔여 = main. PR 0건
+- 문서: handoff 3종 = main 과 동일(최신) · CONTRACT 반영(journal·seed 주의) · PARKING 항목 없음 · CLAUDE.md·DB·env·log·var 미추적
+- 기록: commit `b863eb2` 의 메시지는 이전 스크립트 문구가 재사용되어 내용(SCREENS 통합 후 수정 4건·기능 동결·STATUS)과 맞지 않는다. history rewrite 금지로 수정하지 않고 여기 기록
+
 ## 위험
 - 추출 LLM = `claude -p` 계정 기본 모델(실측 claude-sonnet-5), 호출당 ~3~4초. 실패 시 rules fallback(응답 표기)
 - 시연 당일 Crossref 무응답 시 G4 는 상태 변화 없이 verified 유지(정상 동작) — SPEC 부록 첫 문장 사용
