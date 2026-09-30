@@ -23,6 +23,7 @@
 | `DATA_DIR` | `var` | 런타임 데이터 루트 (gitignore 대상) |
 | `DB_PATH` | `$DATA_DIR/rse.db` | 제품 SQLite 파일 |
 | `APPROVAL_DIR` | `$DATA_DIR/approval` | G5 승인 게이트 원본 파일 위치 |
+| `CROSSREF_BASE_URL` | `https://api.crossref.org` | Crossref 엔드포인트. **EVIDENCE 는 반드시 `config.crossrefBaseUrl` 을 써야 한다** (통합 검증이 도달 불가 주소로 바꿔 조회 실패 경로를 실제로 검사함). 다른 데이터 소스로 바꾸는 용도 아님 |
 | `CROSSREF_MAILTO` | (빈 값) | Crossref polite pool 용 mailto (선택) |
 | `CROSSREF_TIMEOUT_MS` | 10000 | Crossref 조회 timeout |
 | `RSE_LLM` | `claude-cli` | 추출기 선택: `claude-cli` \| `rules` |

@@ -25,6 +25,7 @@ export function loadConfig(overrides = {}) {
     dataDir,
     dbPath: path.resolve(ROOT, get('DB_PATH', path.join(dataDir, 'rse.db'))),
     approvalDir: path.resolve(ROOT, get('APPROVAL_DIR', path.join(dataDir, 'approval'))),
+    crossrefBaseUrl: get('CROSSREF_BASE_URL', 'https://api.crossref.org').replace(/\/+$/, ''),
     crossrefMailto: get('CROSSREF_MAILTO', ''),
     crossrefTimeoutMs: Number(get('CROSSREF_TIMEOUT_MS', 10000)),
     llmMode: get('RSE_LLM', 'claude-cli'),
