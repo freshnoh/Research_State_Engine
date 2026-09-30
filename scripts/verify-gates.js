@@ -79,10 +79,11 @@ async function g1g2() {
   const plan = await api('POST', '/api/chat', { text: LIVE_PLAN });
   check('G1', '계획 발화 HTTP', 200, plan.status);
   check('G1', '계획 발화 kind/saved', ['plan', false], [plan.body?.kind, plan.body?.saved]);
-  check('G1', '계획 발화 attempt 증가량', 0, totalAttempts() - t0);
+  // 증가량 0 은 요청이 실제로 처리(200)됐을 때만 의미가 있다 — 501 등 실패로 인한 0 은 PASS 아님
+  check('G1', '계획 발화 attempt 증가량 (HTTP 200 전제)', [200, 0], [plan.status, totalAttempts() - t0]);
   const qq = await api('POST', '/api/chat', { text: LIVE_QUESTION });
   check('G1', '질문 발화 kind/saved', ['question', false], [qq.body?.kind, qq.body?.saved]);
-  check('G1', '질문 발화 attempt 증가량', 0, totalAttempts() - t0);
+  check('G1', '질문 발화 attempt 증가량 (HTTP 200 전제)', [200, 0], [qq.status, totalAttempts() - t0]);
   check('G2', '질문(입력 전) 같은 접근 수 = DB 2', 2, qq.body?.answer?.tried?.count);
 
   const ex = await api('POST', '/api/chat', { text: LIVE_EXEC });
@@ -104,14 +105,25 @@ async function g1g2() {
   check('G2', '근거 시도 id = DB 같은 접근 id', ids, [...(q2.body?.answer?.tried?.attempt_ids ?? [])].sort((a, b) => a - b));
   const text = q2.body?.answer?.tried?.text ?? '';
   check('G2', '문구에 3번 + 저장된 중단 단계', true, /3번/.test(text) && text.includes('재현성 검증'), undefined);
-  check('G2', '재질문 attempt 증가량 0', ids.length, sameCount());
+  check('G2', '재질문 후 같은 접근 수 불변 (HTTP 200 전제)', [200, ids.length], [q2.status, sameCount()]);
   if (q2.body?.judgment_id) {
     const links = q('SELECT attempt_id FROM judgment_attempt_link WHERE judgment_id=? ORDER BY attempt_id', q2.body.judgment_id).map((r) => r.attempt_id);
     check('G2', '판단 저장 + 사용 시도 link', ids, links);
   } else check('G2', '판단 저장 + 사용 시도 link', 'judgment_id', null, false);
+  check('G2', '중단 단계 전부 동일(저장값 계산)', ['reproducibility_validation', true],
+    [q2.body?.approach?.common_stop_stage?.norm ?? null, q2.body?.approach?.common_stop_stage?.all_same ?? null]);
   // 하드코딩 아님: 다른 접근 키는 다른 DB 값이 나와야 한다
   const other = await api('POST', '/api/chat', { text: 'RSE-03을 마우스에서 행동검증으로 다시 해도 될까요?' });
   check('G2', '다른 접근(RSE-03 동물 행동검증) 수 = DB 1', 1, other.body?.answer?.tried?.count);
+
+  // 부정 경로: 환경 미상 실행 발화 → 저장은 되지만 같은 접근 확정 금지
+  const t1 = totalAttempts();
+  const unk = await api('POST', '/api/chat', { text: '오늘 RSE-01을 Western blot으로 측정했고 재현성 검증 단계에서 중단했습니다.' });
+  const unkRow = q('SELECT * FROM research_attempt ORDER BY id DESC LIMIT 1')[0];
+  check('G1', '환경 미상 실행 발화: 저장 +1 / environment_norm NULL', [1, null], [totalAttempts() - t1, unkRow?.environment_norm ?? 'missing']);
+  check('G1', '환경 미상 → 같은 접근 수 불변(3)', 3, sameCount());
+  const ap = await api('GET', `/api/approaches?attempt_id=${unk.body?.attempt?.id ?? unkRow?.id}`);
+  check('G1', '환경 미상 → 판정 미확정', 'undetermined', ap.body?.match);
 }
 
 async function g3() {
@@ -130,6 +142,12 @@ async function g3() {
   check('G3', '손상 표본 표시 플래그', 1, got.corrupted?.is_demo_corrupted);
   check('G3', '확인 불가 표본 → 확인 불가', 'unverifiable', got.unverifiable?.status);
   check('G3', '확인 불가 사유 = 레코드 미확인', 'not_found', got.unverifiable?.unverifiable_reason);
+  check('G3', '손상 표본 불일치 필드에 title 포함', true, JSON.parse(got.corrupted?.mismatch_fields || '[]').includes('title'), undefined);
+  const raw = q('SELECT http_status, raw_json FROM crossref_cache WHERE lower(doi)=?', sample('normal').input_doi.toLowerCase())[0];
+  let rawTitle = null;
+  try { rawTitle = JSON.parse(raw?.raw_json)?.message?.title?.[0] ?? null; } catch { /* not json */ }
+  check('G3', 'Crossref raw 응답 cache 보존 (정상 표본)', [200, 'Deep learning'], [raw?.http_status ?? null, rawTitle]);
+  check('G3', 'Crossref 서지 저장 (정상 표본)', 'Deep learning', got.normal?.cr_title);
   const live = sample('live_unseeded');
   const lr = await api('POST', '/api/evidence', { doi: live.input_doi });
   check('G3', '시드 없는 DOI 현장 입력 → 확인(fresh)', ['verified', 'fresh'], [lr.body?.evidence?.status, lr.body?.lookup?.mode]);
@@ -156,6 +174,10 @@ async function failurePath(got) {
   check('G3', '조회 실패 기록(last_attempt_ok=0, last_success_at 유지)', [0, true], [row?.last_attempt_ok, !!row?.last_success_at]);
   const ev = (await api('GET', '/api/evidence')).body?.evidence?.find((e) => e.id === id);
   check('G3', 'API latest_check_failed 표시', true, ev?.latest_check_failed);
+  // 과거 기록·cache 가 전혀 없는 DOI 의 최초 조회 실패 → 확인 불가 · 조회 실패 (부재 아님)
+  const first = await api('POST', '/api/evidence', { doi: '10.1234/rse.offline.first-lookup' });
+  check('G3', '최초 조회 실패 → 확인 불가/조회 실패', ['unverifiable', 'lookup_failed'],
+    [first.body?.evidence?.status ?? null, first.body?.evidence?.unverifiable_reason ?? null]);
   await stopServer();
   await startServer();
 }
@@ -177,10 +199,17 @@ async function g4() {
   const after = q('SELECT * FROM evidence WHERE id=?', ev?.id)[0];
   check('G4', 'DB 철회 relation 저장(유형/방향)', ['retraction', 'updated-by'], [after?.retraction_type, after?.retraction_direction]);
   check('G4', '철회 출처 저장', true, !!after?.retraction_source, undefined);
+  check('G4', '철회 notice DOI 저장 (현재 Crossref 값)', true, !!after?.retraction_notice_doi, undefined);
+  const rawAfter = q('SELECT raw_json, fetched_at FROM crossref_cache WHERE lower(doi)=?', RETRACTED_DOI)[0];
+  let upd = [];
+  try { upd = (JSON.parse(rawAfter?.raw_json)?.message?.['updated-by'] ?? []).map((u) => u.type); } catch { /* not json */ }
+  check('G4', '재검사 raw 응답 저장 + retraction 포함', true, upd.includes('retraction'), undefined);
   const back = await api('GET', `/api/evidence/${ev?.id}/judgments`);
   check('G4', '역조회 → 연결 판단 재검토 필요', [jl[0]?.id, true], [back.body?.judgments?.[0]?.id, back.body?.judgments?.[0]?.needs_review]);
   const jrow = q('SELECT needs_review, review_reason FROM judgment WHERE id=?', jl[0]?.id)[0];
   check('G4', 'DB judgment.needs_review=1', 1, jrow?.needs_review);
+  check('G4', '재검토 사유가 판단 오류/연구 거짓을 단정하지 않음', true,
+    !!jrow?.review_reason && !/틀렸|거짓|오류로 판명|잘못된 판단/.test(jrow.review_reason), undefined);
   check('G4', '판단 자체 결론 변경 없음(proposal 유지)', jl[0]?.proposal, q('SELECT proposal FROM judgment WHERE id=?', jl[0]?.id)[0]?.proposal);
 }
 
@@ -251,8 +280,16 @@ async function main() {
     byGate[g] ??= { pass: 0, total: 0 };
     byGate[g].total++; if (r.pass) byGate[g].pass++;
   }
+  // gate 판정: 전부 통과 + 최소 검사 수 충족일 때만 PASS. 검사 0건 또는 단계 오류는 PASS 불가.
+  // 이 harness 는 API/DB 관측만 한다. 화면 판정은 verify-ui 가 별도로 한다 (G5 화면 hash 비교 포함).
+  const MIN = { G1: 16, G2: 9, G3: 15, G4: 15, G5: 8, G6: 10 };
+  for (const [g, min] of Object.entries(MIN)) {
+    const v = (byGate[g] ??= { pass: 0, total: 0 });
+    v.min = min;
+    v.verdict = v.total >= min && v.pass === v.total ? 'PASS(API/DB)' : 'FAIL';
+  }
   const pass = results.filter((r) => r.pass).length;
-  console.log('\n요약:', Object.entries(byGate).map(([g, v]) => `${g} ${v.pass}/${v.total}`).join(' · '), `| 전체 ${pass}/${results.length}`);
+  console.log('\n요약:', Object.entries(byGate).map(([g, v]) => `${g} ${v.pass}/${v.total} ${v.verdict ?? ''}`).join(' · '), `| 전체 ${pass}/${results.length}`);
   const file = path.join(DIR, `report-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
   fs.writeFileSync(file, JSON.stringify({ at: new Date().toISOString(), source, byGate, pass, total: results.length, results }, null, 2));
   console.log('report:', file);

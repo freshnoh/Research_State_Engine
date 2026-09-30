@@ -72,6 +72,13 @@ async function main() {
     await new Promise((r) => setTimeout(r, 4000));
     await nav('c');
     check('G1', '계획 발화 후 화면 C 행 증가 0', rows0, await b.count('attempt-row'));
+    const apiBeforeQ = (await api('/api/attempts')).attempts.length;
+    await send(QUESTION);
+    await b.waitFor(`(document.querySelector('[data-testid="answer-tried"]')?.innerText || '').length > 0`, 60000).catch(() => null);
+    const triedBefore = await b.text('answer-tried');
+    check('G2', '화면 A 입력 전 질문: 같은 접근 2번 표시', true, /2번/.test(triedBefore ?? ''), undefined);
+    await nav('c');
+    check('G1', '질문 발화 후 화면 C 행 증가 0 / API 증가 0', [rows0, apiBeforeQ], [await b.count('attempt-row'), (await api('/api/attempts')).attempts.length]);
     await send(EXEC);
     await b.waitFor(`(document.querySelector('[data-testid="auto-record-line"]')?.innerText || '').includes('자동 기록됨')`, 60000);
     const line = await b.text('auto-record-line');
@@ -83,6 +90,9 @@ async function main() {
     const newest = (await api('/api/attempts')).attempts[0];
     const rowRaw = await b.evaluate(`document.querySelector('[data-testid="attempt-row"][data-attempt-id="${newest.id}"] [data-testid="attempt-raw"]')?.innerText ?? null`);
     check('G1', '새 행에 원문 표시', EXEC, rowRaw?.trim());
+    const rowText = await b.evaluate(`document.querySelector('[data-testid="attempt-row"][data-attempt-id="${newest.id}"]')?.innerText ?? ''`);
+    const structured = ['RSE-01', '세포', '중단', '재현성 검증'].filter((w) => !rowText.includes(w));
+    check('G1', '새 행에 구조화 값(대상·환경·결과·중단 단계) 표시', [], structured);
     await shot('02-screen-c-new-row');
 
     // G2: 재질문 → 3번 + 재현성 검증
@@ -90,7 +100,14 @@ async function main() {
     await b.waitFor(`/3번/.test(document.querySelector('[data-testid="answer-tried"]')?.innerText || '')`, 60000).catch(() => null);
     const tried = await b.text('answer-tried');
     check('G2', '화면 A 이미 해본 것 = 3번 · 재현성 검증', true, /3번/.test(tried ?? '') && (tried ?? '').includes('재현성 검증'), undefined);
-    check('G2', '화면 A 세 덩어리 표시', [true, true, true], [await b.exists('answer-tried'), await b.exists('answer-evidence'), await b.exists('answer-next')]);
+    const evText = (await b.text('answer-evidence')) ?? '';
+    const nextText = (await b.text('answer-next')) ?? '';
+    check('G2', '화면 A 근거 상태·다음 후보 내용 표시', [true, true], [evText.trim().length > 0, nextText.trim().length > 0]);
+    const qApi = (await api('/api/judgments')).judgments[0];
+    check('G2', '다음 후보: 근거 부족 문구 또는 저장 근거 기반', true,
+      nextText.includes('저장된 이력과 검증된 근거만으로는 다음 경로를 제시할 수 없습니다') || (qApi?.attempt_ids?.length > 0 && nextText.length > 0), undefined);
+    await nav('c');
+    check('G1', '재질문 후 화면 C 행 수 불변', rows0 + 1, await b.count('attempt-row'));
     await shot('03-answer');
 
     // G4: [지금 재검사] → 철회됨 + 재검토 필요
@@ -99,11 +116,21 @@ async function main() {
     const jg = (await api('/api/judgments')).judgments.find((j) => j.evidence.some((e) => e.id === ev.id));
     const evStatus = () => b.evaluate(`document.querySelector('[data-testid="evidence-row"][data-evidence-id="${ev.id}"]')?.getAttribute('data-status') ?? null`);
     const jReview = () => b.evaluate(`document.querySelector('[data-testid="judgment-row"][data-judgment-id="${jg.id}"]')?.getAttribute('data-needs-review') ?? null`);
+    const jText = () => b.evaluate(`document.querySelector('[data-testid="judgment-row"][data-judgment-id="${jg.id}"]')?.innerText ?? ''`);
+    const eText = () => b.evaluate(`document.querySelector('[data-testid="evidence-row"][data-evidence-id="${ev.id}"]')?.innerText ?? ''`);
     check('G4', '재검사 전 화면: 근거 확인 / 재검토 없음', ['verified', '0'], [await evStatus(), await jReview()]);
+    check('G4', '재검사 전 화면: 과거 상태 고지 + "확인" 라벨', [true, true],
+      [(await jText()).includes('철회 이전 시점의 시연용 과거 상태') || (await eText()).includes('철회 이전 시점의 시연용 과거 상태'), (await eText()).includes('확인')]);
     await shot('04-before-recheck');
     await b.click('recheck-btn');
     await b.waitFor(`document.querySelector('[data-testid="judgment-row"][data-judgment-id="${jg.id}"]')?.getAttribute('data-needs-review') === '1'`, 60000).catch(() => null);
     check('G4', '재검사 후 화면: 철회됨 / 재검토 필요', ['retracted', '1'], [await evStatus(), await jReview()]);
+    check('G4', '재검사 후 텍스트: "철회됨" + "재검토 필요"', [true, true], [(await eText()).includes('철회됨'), (await jText()).includes('재검토 필요')]);
+    const allEv = (await api('/api/evidence')).evidence;
+    const uiStatuses = await attrs('evidence-row', 'data-status');
+    check('G3', '화면 C 근거 행 상태 = API 상태 (전수)', allEv.map((e) => e.status).sort(), [...uiStatuses].sort());
+    const pageText = await b.evaluate('document.body.innerText');
+    check('G3', '화면에 부재·가짜 단정 표현 없음', [], ['논문 없음', '가짜 논문', '존재하지 않음', '존재하지 않는'].filter((w) => pageText.includes(w)));
     await shot('05-after-recheck');
 
     // G5: 덮어쓰기 요청 → 대기 카드 → 분석 완료 → 승인 → 전후 hash
@@ -114,6 +141,10 @@ async function main() {
     const card = `[data-testid="approval-card"][data-status="pending"]`;
     const before = await b.evaluate(`document.querySelector('${card} [data-testid="approval-hash-before"]')?.innerText ?? null`);
     check('G5', '대기 카드 승인 전 hash = 원본 hash', fixtureHash, before?.trim());
+    const cardText = await b.evaluate(`document.querySelector('${card}')?.innerText ?? ''`);
+    const pendingApi = (await api('/api/approvals')).approvals.find((a) => a.status === 'pending');
+    check('G5', '카드에 작업·승인 이유·영향 대상 표시', [true, true, true],
+      [cardText.includes(pendingApi?.description ?? '∅'), cardText.includes(pendingApi?.reason ?? '∅'), cardText.includes('original_measurements.csv')]);
     const runs0 = await b.count('run-result');
     await b.click('run-analysis');
     await b.waitFor(`document.querySelectorAll('[data-testid="run-result"]').length > ${runs0}`, 10000).catch(() => null);
@@ -129,6 +160,15 @@ async function main() {
     const nowHash = (await api('/api/approval/target')).hash_short;
     check('G5', '승인 후 화면 전/후 hash 나란히 + 변경', [fixtureHash, nowHash, true], [hb, ha, hb !== ha]);
     await shot('07-approved-hashes');
+    // 거절 경로: 새 요청 → 거절 → 카드 거절 상태 + 원본 hash 불변
+    const hashNow = (await api('/api/approval/target')).hash_short;
+    await b.click('request-overwrite');
+    await b.waitFor(`!!document.querySelector('${card}')`, 10000);
+    const rid = await b.evaluate(`document.querySelector('${card}').getAttribute('data-approval-id')`);
+    await b.click('reject-btn', `[data-testid="approval-card"][data-approval-id="${rid}"]`);
+    await b.waitFor(`document.querySelector('[data-testid="approval-card"][data-approval-id="${rid}"]')?.getAttribute('data-status') === 'rejected'`, 10000).catch(() => null);
+    check('G5', '화면 거절 → 카드 rejected + 원본 hash 불변', ['rejected', hashNow],
+      [await b.evaluate(`document.querySelector('[data-testid="approval-card"][data-approval-id="${rid}"]')?.getAttribute('data-status') ?? null`), (await api('/api/approval/target')).hash_short]);
 
     // G6: 서버 재시작 → 화면에서 5개 상태 유지
     const snapApi = async () => {
@@ -155,9 +195,18 @@ async function main() {
     await b.close();
     await stopServer();
   }
+  // 화면 판정: gate 별 전부 통과 + 최소 검사 수 충족일 때만 PASS(UI). 흐름 오류가 나면 이후 검사 누락 → 최소 수 미달 → FAIL.
+  const MIN = { UI: 2, G1: 8, G2: 4, G3: 2, G4: 4, G5: 6, G6: 3 };
+  const byGate = {};
+  for (const r of results) { byGate[r.gate] ??= { pass: 0, total: 0 }; byGate[r.gate].total++; if (r.pass) byGate[r.gate].pass++; }
+  for (const [g, min] of Object.entries(MIN)) {
+    const v = (byGate[g] ??= { pass: 0, total: 0 });
+    v.min = min;
+    v.verdict = v.total >= min && v.pass === v.total ? 'PASS(UI)' : 'FAIL';
+  }
   const pass = results.filter((r) => r.pass).length;
-  console.log(`\nUI 요약: ${pass}/${results.length}  shots: ${SHOTS}`);
-  fs.writeFileSync(path.join(ROOT, VDIR, 'ui-report.json'), JSON.stringify({ at: new Date().toISOString(), pass, total: results.length, results }, null, 2));
+  console.log('\nUI 요약:', Object.entries(byGate).map(([g, v]) => `${g} ${v.pass}/${v.total} ${v.verdict}`).join(' · '), `| 전체 ${pass}/${results.length}  shots: ${SHOTS}`);
+  fs.writeFileSync(path.join(ROOT, VDIR, 'ui-report.json'), JSON.stringify({ at: new Date().toISOString(), byGate, pass, total: results.length, results }, null, 2));
   process.exitCode = pass === results.length && results.length > 0 ? 0 : 1;
 }
 
