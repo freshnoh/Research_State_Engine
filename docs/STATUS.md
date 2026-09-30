@@ -1,46 +1,48 @@
 # STATUS — INTEGRATOR 단일 작성
 
 > worker 는 이 파일을 수정하지 않는다. 모든 값은 INTEGRATOR 의 main 기준 실측.
-> 판정: PASS (API/DB + 실제 브라우저 화면 모두 관측) · FAIL (관측했으나 기대와 다름/미구현) · UNPROVEN (API/DB 는 관측됐으나 SPEC 이 요구하는 화면 관측 미완 등)
+> 판정: PASS (API/DB + 실제 브라우저 화면 모두 관측) · FAIL · UNPROVEN
 
-갱신: 2026-09-30 19:45 KST · main = CAPTURE+EVIDENCE 통합 (통합 commit `181357d`, 이 STATUS commit 은 그 위)
+갱신: 2026-09-30 20:05 KST · main = 3 트랙 통합 + 통합 수정 (이 STATUS 를 담은 commit)
+**기능 동결: 2026-09-30 20:00 KST** — 이후 시연을 깨는 결함·제출물 불일치·보안 문제만 수정
 
-## worker 트랙 통합 (19:31 단회 실측 기준)
-| track | worker SHA | 독립 검증 (branch 단독) | main 통합 |
+## worker 트랙 통합
+| track | worker SHA | branch 단독 독립 검증 | main 통합 |
 |---|---|---|---|
-| CAPTURE | 4209c26 (merge-base d164270, ahead 2 / behind 2) | 정적 4/4 · `npm test` 31/31 · verify-gates G1 15/16 · G2 8/9 (실패 2건 = harness 결함, 아래) | O — merge commit `181357d` |
-| EVIDENCE | a70b08b (merge-base ea55992, ahead 3 / behind 0) | 정적 4/4 · `npm test` 42/42 · verify-gates G3 15/15 · G4 15/15 · G6 10/10 (실제 Crossref) · prewarm skip=[nature04533, live_unseeded] | O — merge commit `c5bf7e3` |
-| SCREENS | 96cb120 (ahead 2 / behind 0) | 미처리 — 완료 보고 대기 (폴링 안 함) | X |
+| CAPTURE | 4209c26 | 정적 4/4 · `npm test` 31/31 · gates G1 15/16 · G2 8/9 (실패 2 = harness 결함) | O `181357d` |
+| EVIDENCE | a70b08b | 정적 4/4 · `npm test` 42/42 · gates G3 15/15 · G4 15/15 · G6 10/10 (실제 Crossref) | O `c5bf7e3` |
+| SCREENS | 96cb120 | 정적 4/4 (public/** · test/screens/** · handoff 7파일) · `npm test` 23/23 · 금지 표현 0 · reset 버튼 0 · 외부 URL 0 | O `4768d0d` |
 
-harness 결함 2건 (INTEGRATOR 수정, 기대값 완화 아님):
-1. G1 환경 미상 검사에서 `null ?? 'missing'` 이 정상값 null 을 'missing' 으로 바꿈 → 삼항식으로 수정
-2. G2 반-하드코딩 검사가 사전 밖 seed 값(RSE-03 `behavioral_assay`)을 사용 → CONTRACT §7.2 사전 안의 접근(RSE-01 qpcr cell, DB 1건)으로 교체. CONTRACT 에 주의 문구 추가
-추가 검사: 가설 발화 증가량 0 (G1 최소 검사 16→17)
+### 통합 시 INTEGRATOR 수정 (시연 결함 · 최소 변경, 해당 worker 소유 파일 포함 — 기록)
+1. `src/capture/extract.js` — LLM 이 result 를 `unknown`/enum 밖으로 주면 원문 키워드 규칙(`resultOf`) 사용. 근거: 19:50 main verify-gates 에서 라이브 발화 "…중단했습니다" 가 1회 `unknown` 으로 저장(G1 16/17 FAIL). 직접 CLI 3회는 `stopped` 3/3 → 간헐 변동. 회귀 `test/integration/capture-result.test.js` 4건
+2. `src/evidence/service.js` — 조회 전 임시 행의 최초 판정을 "상태 변경"으로 기록하지 않음. 근거: 화면 C 캡처에서 신규 정상 근거가 "확인 불가 → 확인" 으로 표시(실제로 없던 변화). 회귀 `test/integration/evidence-first-lookup.test.js` 2건 (Aβ*56 확인→철회됨 기록은 유지)
+3. SCREENS CONTRACT_CHANGE_REQUEST(`input.journal`) 반영 — 과거 상태 행은 Crossref 필드가 비어 있어 저널을 표시할 입력 필드가 필요. `evidence.input_journal` 선택 컬럼(기존 DB 는 ALTER 로 보강) + seed "Nature" + `evidenceView.input.journal`. 프런트 변경 없음
+4. harness: verify-ui `send()` 가 응답 완료 전에 다음 발화를 보내던 결함 수정 (이번 세션 발화 목록 +1 · 보내기 버튼 재활성 대기)
 
-## main 검증 (19:44, var/verify 전용 DB, baseline 복제본, 실제 Crossref)
-- `npm test`: 59/59 (core 14 · capture 17 · evidence 28), skip 0 · todo 0
-- `verify-gates`: 74/74 — G1 17/17 · G2 9/9 · G3 15/15 · G4 15/15 · G5 8/8 · G6 10/10 (모두 API/DB 층)
-- `verify-ui`: 미실행 (화면 미통합 — main `public/` 은 placeholder)
+## 최종 main 검증 (20:00 전후, baseline 복제본 DB · 실제 Crossref · Windows Chrome 실제 렌더링)
+- `npm test`: **74/74** (skip 0 · todo 0)
+- `verify-gates` (API/DB): **74/74** — G1 17/17 · G2 9/9 · G3 15/15 · G4 15/15 · G5 8/8 · G6 10/10
+- `verify-ui` (브라우저): **29/29** — G1 8/8 · G2 4/4 · G3 2/2 · G4 4/4 · G5 6/6 · G6 3/3 · 공통 2/2 · 페이지 JS 예외 0
+- 합계 177/177
 
 ## Gate
 | Gate | 판정 | 실측 (기대 / 실제) |
 |---|---|---|
-| G1 자동 축적 | UNPROVEN — 화면 C 새 행 확인만 잔여 | baseline 같은 접근 2/2 · 실행 발화 후 3/3 (attempt +1/+1) · 계획 +0/+0 · 질문 +0/+0 · 가설 +0/+0 · 원문 저장 ✓ · 구조화 RSE-01/western_blot/cell/stopped/reproducibility_validation ✓ (extractor `llm:claude-cli`) · 환경 미상 실행 → 저장 +1, environment_norm NULL, 같은 접근 3 유지, `undetermined` ✓ · auto_record_line ✓ |
-| G2 재사용 | UNPROVEN — 화면 A 표시 확인만 잔여 | 같은 접근 3/3 · attempt ids = DB [1,2,8] · common_stop_stage reproducibility_validation, all_same true · 문구 "3번 … 재현성 검증" DB 계산 · 다른 접근(RSE-01 qpcr cell) 1/1 · 판단 저장 + attempt link [1,2,8] |
-| G3 근거 검증 | UNPROVEN — 화면 C 상태 표시 확인만 잔여 | 정상 verified/verified · 손상 mismatch/mismatch (mismatch_fields title) · 확인 불가 unverifiable·not_found / 동일 · 현장 DOI(AlphaFold) verified·fresh · 기존 verified + Crossref 도달 불가 → verified 유지, last_attempt_ok 0, latest_check_failed true · 최초 조회 실패 → unverifiable·lookup_failed · raw cache 보존(200, "Deep learning") |
-| G4 철회와 소급 | UNPROVEN — 화면 C 확인→철회됨 / 재검토 표시 확인만 잔여 | baseline 근거 verified · 합성 판단 link 1 · 재검토 0 · 철회 논문 cache 0 → [지금 재검사] HTTP 200, lookup `fresh` (log fresh ok 200) · verified→retracted · type retraction / direction updated-by / source publisher, retraction-watch / notice 10.1038/s41586-024-07691-8 / 2024-06-24 · 역조회 judgment 1 needs_review true · review_reason "근거 상태 변경: 확인 → 철회됨" · proposal 불변 |
-| G5 승인 게이트 | UNPROVEN — 화면 B 실제 검증 대기 | API/DB 8/8: 승인 전 hash 19b0f12a = 기준, 대기 중 분석 completed + 카드 pending 1, 승인 후 hash 변경 = 파일 실측, 거절 시 불변 |
-| G6 영속성 | UNPROVEN — 화면 재확인만 잔여 | 서버 프로세스 종료→재시작(새 프로세스) 후 DB 5/5 유지 (시도 9 · 근거 6 · 연결 1 · 철회 1 · 재검토 1) + API 5/5 동일 |
-| R1 제출 안전 | FAIL (미완) | public ✓ · README ✓ (AI 모델 실측 기록) · secret 0 · CLAUDE.md 미추적 · **PPT/PDF 없음 · 데모 영상 없음 · 화면 미통합** |
+| G1 자동 축적 | **PASS** | baseline 같은 접근 2/2 → 실행 발화 후 3/3 (+1/+1) · 계획·질문·가설 증가 0/0 · 원문 + 구조화 RSE-01/western_blot/cell/stopped/reproducibility_validation (`llm:claude-cli`) · 환경 미상 → environment NULL·`undetermined` · 화면 A "자동 기록됨 — …" 한 줄 · 화면 C 행 7→8, 새 행 원문·구조화 값 표시 · 계획/질문 후 화면 C 행 불변 |
+| G2 재사용 | **PASS** | DB 같은 접근 3/3, ids [1,2,8] · common_stop_stage reproducibility_validation all_same · 화면 A 입력 전 "2번…" / 입력 후 "3번…재현성 검증" · 다른 접근(qPCR) 1 → 하드코딩 아님 · 판단 저장 + attempt link · 다음 후보 = "저장된 이력과 검증된 근거만으로는 다음 경로를 제시할 수 없습니다" |
+| G3 근거 검증 | **PASS** | 정상 verified · 손상 mismatch(title) · 확인 불가 unverifiable/not_found · 현장 DOI verified(fresh) · Crossref 도달 불가 시 기존 verified 유지 + latest_check_failed · 최초 조회 실패 unverifiable/lookup_failed · raw cache 보존 · 화면 C 근거 상태 = API 전수 · 화면에 부재·가짜 표현 0 |
+| G4 철회와 소급 | **PASS** | baseline 근거 verified · 합성 판단 link 1 · 재검토 0 · 철회 논문 cache 0 → [지금 재검사] fresh HTTP 200 → retraction / updated-by / publisher, retraction-watch / notice 10.1038/s41586-024-07691-8 / 2024-06-24 → verified→retracted · 역조회 판단 #1 needs_review 1 · 화면 C 재검사 전 "확인"·과거 상태 고지 → 후 "철회됨"·"재검토 필요" (판단이 틀렸다는 뜻 아님 문구) |
+| G5 승인 게이트 | **PASS** | 화면 B: 대기 카드 승인 전 hash 19b0f12a = 원본 · 작업/이유/영향 대상 표시 · 대기 중 분석 완료(카드 여전히 pending) · 승인 전 원본 불변 · 승인 후 전 19b0f12a / 후 1d733821 나란히 = 파일 실측 · 거절 → rejected + hash 불변 |
+| G6 영속성 | **PASS** | 서버 프로세스 종료 → 새 프로세스: DB 5/5 (시도·근거·연결·철회·재검토) + API 5/5 + 화면 시도 행 수·철회됨·재검토 필요 유지 |
+| R1 제출 안전 | **FAIL (미완)** | public ✓ · README ✓ · secret 0 · CLAUDE.md 미추적 ✓ · DB/env/log 미추적 ✓ · **PPT/PDF 없음 · 데모 영상 없음** (대표 비가역 잔여) |
 | PARALLEL_READY | O (25/25) | 18:45 |
 
-## baseline (19:34 재생성, EVIDENCE prewarm 포함)
-`var/baseline/rse.baseline.db`: seed + prewarm (normal verified · corrupted mismatch · unverifiable not_found), skip nature04533 · AlphaFold.
-restore 후 4/4 — 같은 접근 2/2 · 과거 판단 근거 verified/verified · 재검토 0/0 · 원본 hash 19b0f12a73c59354/19b0f12a73c59354 · 철회 논문 cache 0.
-freeze: 없음 (SCREENS 미통합)
+## baseline (20:00 재생성 · 복원)
+`var/baseline/rse.baseline.db` = seed + prewarm (normal verified · corrupted mismatch · unverifiable not_found, previous_status 없음), skip nature04533 · AlphaFold.
+root `var/rse.db` 복원 후 **4/4** — 같은 접근 2/2 · 과거 판단 근거 verified/verified · 재검토 0/0 · 원본 hash 19b0f12a73c59354/19b0f12a73c59354 · 철회 논문 cache 0.
+리허설마다: 서버 정지 → `npm run baseline:restore` → 4/4 확인 후 `npm start`.
 
-## blocker / 위험
-- SCREENS 미통합 → G1~G6 화면 관측·G5 전부 대기
-- 추출 LLM 은 `claude -p` 계정 기본 모델(실측 claude-sonnet-5). 모델 고정 아님, 호출당 ~4초. 실패 시 rules fallback (응답 표기)
-- 시연 당일 Crossref 무응답 시 G4 는 상태 변화 없이 verified 유지(정상 동작) — SPEC 부록 문구 사용
-- PPT/PDF·데모 영상 부재 (대표 비가역 잔여)
+## 위험
+- 추출 LLM = `claude -p` 계정 기본 모델(실측 claude-sonnet-5), 호출당 ~3~4초. 실패 시 rules fallback(응답 표기)
+- 시연 당일 Crossref 무응답 시 G4 는 상태 변화 없이 verified 유지(정상 동작) — SPEC 부록 첫 문장 사용
+- PPT/PDF·데모 영상 부재

@@ -30,7 +30,7 @@ export function evidenceView(r) {
   const latestFailed = r.last_attempt_ok === 0 && !!r.last_success_at;
   return {
     id: r.id,
-    input: { doi: r.input_doi, title: r.input_title, authors: parseJson(r.input_authors, []), year: r.input_year },
+    input: { doi: r.input_doi, title: r.input_title, authors: parseJson(r.input_authors, []), year: r.input_year, journal: r.input_journal ?? null },
     crossref: { title: r.cr_title, authors: parseJson(r.cr_authors, []), year: r.cr_year },
     status: r.status,
     status_label: EVIDENCE_STATUS[r.status],

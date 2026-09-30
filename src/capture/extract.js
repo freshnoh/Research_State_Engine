@@ -50,7 +50,9 @@ export function rulesExtract(text) {
 export function sanitizeFields(text, f) {
   const src = compact(text);
   const grounded = (v) => (typeof v === 'string' && v.trim() && src.includes(compact(v)) ? v.trim() : null);
-  const result = RESULTS.includes(f?.result) ? f.result : 'unknown';
+  // LLM 이 결과를 못 뽑았거나(unknown) enum 밖 값을 주면 원문 키워드 규칙으로 결정한다 (INTEGRATOR 통합 수정:
+  // 라이브 발화 "…중단했습니다" 가 간헐적으로 unknown 으로 저장된 관측 2026-09-30 19:50)
+  const result = RESULTS.includes(f?.result) && f.result !== 'unknown' ? f.result : resultOf(String(text));
   return {
     target: grounded(f?.target),
     method: grounded(f?.method),

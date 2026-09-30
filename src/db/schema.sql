@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS evidence (
   input_title          TEXT,
   input_authors        TEXT,            -- JSON array of strings
   input_year           INTEGER,
+  input_journal        TEXT,            -- 선택 (화면 표시용 입력 서지)
   cr_title             TEXT,
   cr_authors           TEXT,            -- JSON array of strings
   cr_year              INTEGER,

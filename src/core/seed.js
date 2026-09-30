@@ -27,12 +27,12 @@ export function loadSeed(db, file = SEED_FILE) {
         a.stop_stage_raw, a.stop_stage_norm, a.occurred_at, now).lastInsertRowid);
     }
     const insE = db.prepare(`INSERT INTO evidence
-      (input_doi, input_title, input_authors, input_year, status, last_success_at, last_attempt_at,
+      (input_doi, input_title, input_authors, input_year, input_journal, status, last_success_at, last_attempt_at,
        last_attempt_ok, is_demo_past_state, created_at, updated_at)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?)`);
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`);
     for (const e of seed.evidence) {
       ids.evidence[e.key] = Number(insE.run(e.input_doi, e.input_title, JSON.stringify(e.input_authors ?? []),
-        e.input_year ?? null, e.status, e.last_success_at ?? null, e.last_attempt_at ?? null,
+        e.input_year ?? null, e.input_journal ?? null, e.status, e.last_success_at ?? null, e.last_attempt_at ?? null,
         e.last_attempt_ok ?? null, e.is_demo_past_state ? 1 : 0, now, now).lastInsertRowid);
     }
     const insJ = db.prepare(`INSERT INTO judgment

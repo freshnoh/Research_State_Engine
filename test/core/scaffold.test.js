@@ -69,6 +69,7 @@ test('http: /api/health 와 공용 읽기 API 가 실제 값을 반환한다', a
     assert.equal(a.attempts.length, 7);
     const j = await (await fetch(`${base}/api/judgments`)).json();
     assert.equal(j.judgments[0].evidence[0].status, 'verified');
+    assert.equal(j.judgments[0].evidence[0].input.journal, 'Nature');
     assert.equal(j.judgments[0].needs_review, false);
     const idx = await fetch(`${base}/`);
     assert.equal(idx.status, 200);

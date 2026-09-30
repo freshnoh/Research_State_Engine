@@ -22,6 +22,9 @@ export function openDb(dbPath) {
 
 export function migrate(db) {
   db.exec(fs.readFileSync(SCHEMA_FILE, 'utf8'));
+  // 기존 DB 에 추가된 선택 컬럼 보강 (CREATE TABLE IF NOT EXISTS 는 컬럼을 추가하지 않음)
+  const cols = db.prepare('PRAGMA table_info(evidence)').all().map((c) => c.name);
+  if (!cols.includes('input_journal')) db.exec('ALTER TABLE evidence ADD COLUMN input_journal TEXT');
   db.prepare('INSERT OR REPLACE INTO schema_meta(key, value) VALUES (?, ?)').run('schema_version', SCHEMA_VERSION);
 }
 

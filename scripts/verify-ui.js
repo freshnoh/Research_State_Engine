@@ -56,7 +56,16 @@ async function main() {
   const shot = (n) => b.screenshot(path.join(SHOTS, `${n}.png`));
   const nav = async (x) => { if (await b.exists(`nav-${x}`)) await b.click(`nav-${x}`); };
   const attrs = (id, attr) => b.evaluate(`[...document.querySelectorAll('[data-testid="${id}"]')].map(e => e.getAttribute('${attr}'))`);
-  const send = async (text) => { await nav('a'); await b.type('chat-input', text); await b.click('chat-send'); };
+  // 발화 1건 전송 후 서버 응답 처리가 끝날 때까지 기다린다 (이번 세션 발화 목록 +1 · 보내기 버튼 재활성)
+  const idle = `!document.querySelector('[data-testid="chat-send"]').disabled && document.querySelector('[data-testid="a-status"]')?.dataset.state !== 'loading'`;
+  const send = async (text) => {
+    await nav('a');
+    await b.waitFor(idle, 120000);
+    const n = await b.evaluate(`document.querySelectorAll('[data-testid="chat-log"] > li').length`);
+    await b.type('chat-input', text);
+    await b.click('chat-send');
+    await b.waitFor(`document.querySelectorAll('[data-testid="chat-log"] > li').length > ${n} && ${idle}`, 120000);
+  };
   try {
     await b.goto(BASE + '/');
     await b.waitFor(`!!document.querySelector('[data-testid="data-notice"]')`);

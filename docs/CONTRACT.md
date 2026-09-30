@@ -90,7 +90,7 @@ enum 코드 (DB·API 는 코드, 화면은 라벨):
 ### 3.2 Evidence (`evidenceView`)
 ```json
 { "id": 1,
-  "input": {"doi": "10.1038/nature04533", "title": "…", "authors": ["Lesné"], "year": 2006},
+  "input": {"doi": "10.1038/nature04533", "title": "…", "authors": ["Lesné"], "year": 2006, "journal": "Nature"},
   "crossref": {"title": null, "authors": [], "year": null},
   "status": "verified", "status_label": "확인",
   "unverifiable_reason": null, "unverifiable_reason_label": null, "mismatch_fields": [],

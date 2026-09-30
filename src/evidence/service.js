@@ -135,7 +135,9 @@ export function createEvidenceService({ db, config, fetch: fetchImpl = globalThi
       }
     }
 
-    if (upd.status && upd.status !== before) {
+    // 조회 전 임시 행(한 번도 조회 안 됨)의 최초 판정은 "상태 변경" 이 아니다 (INTEGRATOR 통합 수정:
+    // 신규 정상 근거가 화면에 "확인 불가 → 확인" 으로 표시되던 문제, 2026-09-30 19:55)
+    if (upd.status && upd.status !== before && row.last_attempt_at != null) {
       upd.previous_status = before;
       upd.status_changed_at = t;
     }
