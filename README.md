@@ -148,7 +148,7 @@ npm run baseline:restore # 서버 정지 상태에서 복원 → 4값 검사 (4/
 | 테스트 | `node:test` |
 | 외부 연구 데이터 | **Crossref REST API** (`api.crossref.org/works/{doi}`) 하나뿐 |
 | 무결성 | SHA-256 (`node:crypto`) |
-| AI 모델 | 자연어 → 구조화 후보 추출: 로컬 Claude Code CLI (`claude -p`, 계정 기본 모델 — 2026-09-30 실측 `modelUsage`: `claude-sonnet-5`, 보조 `claude-haiku-4-5-20251001`). CLI 실패 시 규칙 기반 추출로 전환하고 응답에 `extractor_fallback` 표기. **2026-09-30 21:50 KST 이후 계정 측에서 CLI 구독 접근이 차단(HTTP 403)되어, 현재 시연 환경의 추출은 규칙 기반(`extractor: rules`)으로 동작**하며 발표 말투 표본 9/9·G1~G6 회귀를 이 경로에서 검증 · 개발 도구: Claude Code (Claude Opus 5.5) |
+| AI 모델 | 자연어 → 구조화 후보 추출: 로컬 Claude Code CLI (`claude -p`, 계정 기본 모델 — 2026-09-30 실측 `modelUsage`: `claude-sonnet-5`, 보조 `claude-haiku-4-5-20251001`). CLI 실패 시 규칙 기반 추출로 전환하고 응답에 `extractor_fallback` 표기. 2026-09-30 22:50 KST 발표 서버 환경(Anthropic API 키 인증)에서 제품 추출 함수 호출의 `modelUsage` 실측 = `claude-sonnet-5-5` (관측값이며 코드에 고정하지 않음). LLM 이 넘긴 값은 원문에 글자 그대로 있는 것만 쓰고, 대상에 붙은 환경 표현·누락된 환경은 원문 규칙으로 보정 · 개발 도구: Claude Code (Claude Opus 5.5) |
 
 LLM 은 값 추출·설명에만 쓰이며, 다음은 결정적 규칙(코드)이 판정합니다:
 실행 흔적 여부 · 같은 접근 여부 · 서지 비교 · 철회 판정 · 조회 실패 시 기존 상태 유지 · 승인 필요 여부.

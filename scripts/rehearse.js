@@ -16,13 +16,23 @@ const EXEC = '오늘 RSE-01 세포에서 WB 해봤는데 또 재현성 검증 �
 
 const wsl = (cmd) => execFileSync('wsl.exe', ['-d', 'Ubuntu', '--', 'bash', '-c', cmd], { encoding: 'utf8' });
 const same = () => Number(wsl(`sqlite3 ${WSL_ROOT}/var/rse.db "select count(*) from research_attempt where target_norm='RSE-01' and method_norm='western_blot' and environment_norm='cell'"`).trim());
-const restore = () => {
+// 선택: RSE_SUPERVISOR 가 있으면 발표 서버 기동/정지·baseline 복원을 supervisor 에 맡긴다 (발표 서버와 같은 환경)
+const SUP = process.env.RSE_SUPERVISOR;
+const supCall = async (p, b = {}) => (await fetch(SUP + p, { method: 'POST', body: JSON.stringify(b) })).json();
+const restore = async () => {
+  if (SUP) { const r = await supCall('/restore'); return { ok: r.ok, line: (r.text || '').split('\n').find((l) => l.startsWith('baseline')) }; }
   const out = wsl(`cd ${WSL_ROOT} && node --disable-warning=ExperimentalWarning scripts/baseline.js restore; echo EXIT=$?`);
   return { ok: /baseline 4\/4/.test(out) && /EXIT=0/.test(out), line: out.split('\n').find((l) => l.startsWith('baseline')) };
 };
 
 let server = null;
 async function start() {
+  if (SUP) {
+    const r = await supCall('/start', { name: 'demo', port: 4100 });
+    if (!r.ok) throw new Error('발표 서버 시작 실패 (supervisor)');
+    server = 'sup';
+    return;
+  }
   server = spawn('wsl.exe', ['-d', 'Ubuntu', '--', 'bash', '-c', `cd ${WSL_ROOT} && exec node --disable-warning=ExperimentalWarning src/server.js`], { stdio: 'ignore', windowsHide: true });
   for (let i = 0; i < 60; i++) { try { if ((await fetch(`${BASE}/api/health`)).ok) return; } catch {} await new Promise((r) => setTimeout(r, 250)); }
   throw new Error('발표 서버 시작 실패');
@@ -30,6 +40,7 @@ async function start() {
 async function stop() {
   if (!server) return;
   const s = server; server = null;
+  if (s === 'sup') { await supCall('/stop', { name: 'demo', port: 4100 }); return; }
   await new Promise((r) => { s.once('exit', r); s.kill(); setTimeout(r, 3000); });
   for (let i = 0; i < 20; i++) { try { await fetch(`${BASE}/api/health`); } catch { return; } await new Promise((r) => setTimeout(r, 250)); }
 }
@@ -37,7 +48,7 @@ async function stop() {
 async function round(n) {
   const checks = [];
   const ck = (name, exp, act) => { const pass = JSON.stringify(exp) === JSON.stringify(act); checks.push({ name, exp, act, pass }); return pass; };
-  const r0 = restore();
+  const r0 = await restore();
   ck('시작 baseline 4/4', true, r0.ok);
   await start();
   const b = await launch({ width: 1920, height: 1080 });
@@ -60,6 +71,10 @@ async function round(n) {
     await send(EXEC);
     const line = (await b.text('auto-record-line')) ?? '';
     ck('실행 후 DB 같은 접근 3', 3, same());
+    if (process.env.RSE_EXPECT_EXTRACTOR) {
+      const top = (await (await fetch(BASE + '/api/attempts')).json()).attempts[0];
+      ck(`실행 extractor = ${process.env.RSE_EXPECT_EXTRACTOR} (fallback 없음)`, process.env.RSE_EXPECT_EXTRACTOR, top?.extractor);
+    }
     ck('자동 기록 한 줄 (RSE-01·세포·중단)', true, line.includes('자동 기록됨') && line.includes('RSE-01') && line.includes('세포') && line.includes('중단'));
     // ③ 재질문 → 3건
     await send(Q);
@@ -111,6 +126,6 @@ async function round(n) {
 
 const results = [];
 for (let i = 1; i <= ROUNDS; i++) results.push(await round(i));
-const fin = restore();
+const fin = await restore();
 console.log(`리허설 ${results.filter(Boolean).length}/${ROUNDS} · 최종 ${fin.line}`);
 process.exitCode = results.every(Boolean) && fin.ok ? 0 : 1;

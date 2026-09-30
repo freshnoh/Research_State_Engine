@@ -26,8 +26,19 @@ function check(gate, name, expected, actual, pass = JSON.stringify(expected) ===
   console.log(`${pass ? 'PASS' : 'FAIL'} [${gate}] ${name} — 기대 ${JSON.stringify(expected)} / 실제 ${JSON.stringify(actual)}`);
 }
 
+// 선택: RSE_SUPERVISOR=http://localhost:<port> 이면 서버 기동/정지를 그 supervisor 에 맡긴다
+// (발표 서버와 같은 환경 — 예: LLM 인증 — 으로 검증할 때. 환경값은 이 스크립트로 넘어오지 않는다)
+const SUP = process.env.RSE_SUPERVISOR;
+const supCall = async (p, b) => (await fetch(SUP + p, { method: 'POST', body: JSON.stringify(b) })).json();
+
 let server = null;
 async function startServer() {
+  if (SUP) {
+    const r = await supCall('/start', { name: 'verify-ui', port: PORT, dbPath: `${VDIR}/rse.db`, dataDir: VDIR });
+    if (!r.ok) throw new Error('UI 검증 서버 시작 실패 (supervisor)');
+    server = 'sup';
+    return;
+  }
   server = spawn('wsl.exe', ['-d', 'Ubuntu', '--', 'bash', '-c',
     `cd ${WSL_ROOT} && PORT=${PORT} DATA_DIR=${VDIR} DB_PATH=${VDIR}/rse.db APPROVAL_DIR=${VDIR}/approval exec node --disable-warning=ExperimentalWarning src/server.js`],
   { stdio: 'ignore', windowsHide: true });
@@ -40,6 +51,7 @@ async function startServer() {
 async function stopServer() {
   if (!server) return;
   const s = server; server = null;
+  if (s === 'sup') { await supCall('/stop', { name: 'verify-ui', port: PORT }); return; }
   await new Promise((r) => { s.once('exit', r); s.kill(); setTimeout(r, 3000); });
   for (let i = 0; i < 20; i++) {
     try { await fetch(`${BASE}/api/health`); } catch { return; }

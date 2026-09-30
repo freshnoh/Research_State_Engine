@@ -53,10 +53,17 @@ export function sanitizeFields(text, f) {
   // LLM 이 결과를 못 뽑았거나(unknown) enum 밖 값을 주면 원문 키워드 규칙으로 결정한다 (INTEGRATOR 통합 수정:
   // 라이브 발화 "…중단했습니다" 가 간헐적으로 unknown 으로 저장된 관측 2026-09-30 19:50)
   const result = RESULTS.includes(f?.result) && f.result !== 'unknown' ? f.result : resultOf(String(text));
+  // 원문 규칙 보정 (INTEGRATOR 통합 수정, 2026-09-30 22:45 관측: claude-sonnet-5-5 가 "RSE-01 세포에서…" 를
+  // target "RSE-01 세포" · environment null 로 반복 추출 → 같은 접근 미확정). 원문에 실제 있는 문자열만 쓴다 (추측 아님).
+  const r = rulesExtract(String(text)).fields;
+  let target = grounded(f?.target);
+  if (target && r.target && target !== r.target && compact(target).includes(compact(r.target))) target = r.target;
+  // 환경: LLM 이 비워 둔 경우에만 원문 규칙값을 쓴다. LLM 이 원문에 없는 값을 준 경우(환각)는 기존대로 null.
+  const llmEnvEmpty = !(typeof f?.environment === 'string' && f.environment.trim());
   return {
-    target: grounded(f?.target),
+    target,
     method: grounded(f?.method),
-    environment: grounded(f?.environment),
+    environment: llmEnvEmpty ? r.environment : grounded(f?.environment),
     condition: grounded(f?.condition),
     result,
     stop_stage: grounded(f?.stop_stage?.replace?.(/\s*단계\s*$/, '')),

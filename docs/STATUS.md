@@ -50,6 +50,16 @@ root `var/rse.db` 복원 후 **4/4** — 같은 접근 2/2 · 과거 판단 근�
 - 신규 발표 흐름 채택: 질문("…WB 해볼 생각인데 전에 해본 적 있어?") → DB 2 유지·화면 "2번" → 실행("…접었어요") → DB 3 → 재질문 "3번" → [지금 재검사] 철회됨·재검토 → 승인 게이트. 실제 발표 서버(4100, 운영 DB)·Chrome 1920×1080 리허설 **3/3** (각 12/12, 회차마다 baseline 4/4 복원)
 - 최종 baseline 4/4. 운영 도구 `scripts/rehearse.js` 추가 (제품 코드 아님)
 
+## LLM 주경로 확정 (2026-09-30 23:00 KST)
+- 발표 서버(4100, 대표 기동 22:26) 환경: ANTHROPIC_API_KEY 설정됨(존재만 확인), RSE_LLM 미설정 → 기본 `claude-cli`
+- 실제 모델: 제품 함수 `runClaudeCli` 를 발표 서버와 같은 환경에서 직접 호출 → `modelUsage` = `claude-sonnet-5-5`, is_error false, 3.96s
+- 발견 결함: claude-sonnet-5-5 가 "RSE-01 세포에서…" 를 target "RSE-01 세포" · environment null 로 추출 (LLM 표본 2/6, 실행 표본 4/4 재현) → 같은 접근 미확정, 2→3 실패
+- 수정: `src/capture/extract.js` `sanitizeFields` — LLM target 이 원문 규칙 대상 식별자를 포함하면 식별자로, LLM 이 environment 를 비웠을 때만 원문 규칙 환경값 사용 (환각값은 기존대로 null). 회귀 3건 (`test/integration/capture-result.test.js`)
+- 재검증 (LLM 경로, 발표 서버 환경): 현실 말투 6/6 (실행 A·WB alias B·계획 C·질문 D·가설 E·하드코딩 반증 H: RSE-77/qpcr/cell 0→1, 질문 "1번…RNA 품질 확인") · 실행 요청 extractor `llm:claude-cli` 전건, unexpected fallback 0 · verify-gates 74/74 · verify-ui 29/29 · 리허설 3/3 (각 13/13, 매 회차 execution extractor = llm:claude-cli)
+- rules 경로 회귀 (키 없는 셸): 말투 9/9 · verify-gates 74/74 · 실패 주입(키 제외 격리 프로세스) → `rules` + `extractor_fallback` 표기 1/1
+- `npm test` 78/78 · 최종 baseline 4/4 · 발표 서버 같은 환경으로 재기동(4100)
+- 검증 도구: `scripts/verify-ui.js`·`scripts/rehearse.js` 에 선택 `RSE_SUPERVISOR` 모드 추가 (서버 기동을 외부 supervisor 에 위임, 환경값 비노출)
+
 ## 정리 3종 (20:10)
 - 워크트리: 3개(capture/evidence/screens) 모두 main 착지·clean·미push 0·handoff = main 확인 후 제거, `git worktree prune`. 잔여 = main 1개. 검증용 임시 worktree(/tmp/rse-v/*) 3개도 제거
 - 브랜치/PR: track/capture·evidence·screens local+origin 삭제 (모두 origin/main 조상 확인). 잔여 = main. PR 0건
